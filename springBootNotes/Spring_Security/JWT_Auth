@@ -1,0 +1,322 @@
+1(3) JWT  (Json web Token) Authentication method :: 
+
+This provides a secure way of transmitting data between parties as a json object.
+This information is verified because it is digitally signed using RSA (public and private key pair), hmac etc. 
+
+
+ For Authentication and autherization we can use this JWT token.
+ We can use JWT token in single sign on also :  like once user is logged in one application he can access other applications also.
+ 
+ 
+Basic flow of authentication and autherization using JWT :
+  
+  * User hit login api and sends login credentials to authentication server. there user will be authentcated and server sends back JWT Token.
+  * next time whenever  user hits any business api in any other server or in same auth server he will send this jwt token also.
+  * there server will call api to auth server and sends this jwt token in headers and user will be authenticated and authorized  .
+  * on succesfully auth server sends the response to client.
+  
+  
+ JWT is stateless so that's why it has more advantage than session based authentication because there we need to maintain state of user (login/logged out) so every time when we make any http request it need to go to db and fetch user session details based on session id which will cause some latency in API.
+ 
+ 
+ JWT Structure :: 
+ 
+ This token structure will contain 3 parts seprated by .  
+ 
+    eg ::  xxx.yyy.zzz
+    
+    xxx -> this represents headers.
+    yyy -> this represents payload.
+    zzz -> this represents signature.
+    
+    
+ (1) Headers :: 
+    
+    * headers contain metadata of the token
+    * it will be key value pair like  type : jwt i.e what is this token type and also alg:RSA i.e signing algorithm used for this token is RSA . etc....
+    
+ (2) Payload :: 
+    * this contain claims i.e user information and other additional information.
+    claims are of  3 types Registered claims, public claims, private claims.
+    
+    Reserved Claims :: 
+    
+       basically claims are as we know in this token we will have key value pairs so keys are called as claims.
+       there are some reserved claims so that it contains some specific data 
+        eg :: 
+            	iss :: it contains the entity info who issued this jwt token 
+            	sub :: identifies the user.
+            	exp :: expiration time of this token.
+            	
+           so we should not use this registered claims to sending any other data .
+           
+           
+     Public claims :: 
+       
+            Apart from that registered claims if we want to send any other addtional info in that token then we can create our custom claims and send data.   
+            for eg :: if we want store user email we can create one custom claim name as email and sent email for this claim.
+            
+            public claims are the custom claims which can be shared and understood by multiple parties.
+            
+      private claims ::  
+            
+           private  claims are the custom claims which are not standardized or cannot  be  understood by multiple parties.
+           
+           for eg : if we create a claim like with random name 'iam' and sent username through it no one can understood what information that claim contains. it will be only understood by auth server as it is only created and sending that data.  
+           
+           
+  (3) Signature ::
+   
+        This digital signature will be formed by below steps : 
+        
+          * enode your header with bas64 encoding  and also do the same with payload also.
+          * now concatinate both strings with '.' and form a new string now encrypt this new string with RSA or hmac algorithm i.e pass private key and concatinated encoded string to get an digital signature (encryption) if we are using RSA algorithm or pass secret key and concatinated string to get a digital signature if we are using hmac algorithm.
+          * now encode this digital signature with base64 encoding and concatinate all the base64encoded string with '.' (header, payload,signature) and this will be the jwt token.
+          
+          
+      so finally jwt token will be like  base64(header).base64(payload).base64(signature)           
+                 
+                 
+   whenever any http request was made this jwt token will be passed in headers .
+   in headers for authorization key we need to pass in format like 'bearer jwtToken' . because it is standard like all the auth info   should be passed in headers for authorization key , so to avoid confussion we maintained some constants before token here bearer . same in basic authentication method we pass encoded username and password also but in format of 'basic encodedString'.
+   
+   
+   
+   
+   Advantages of jwt :: 
+   
+  (1) compact size :: jwt token size is small so that it can sent thorugh headers itself and transmission is very fast.
+  (2) self conatined :: as every info related to user is in this token only so that no need to query in db to get any data while authentication or authorization.
+  (3) can be signed using Asymmetric (RSA) and Symmetric(HMAC).
+  (4) custom claims :: we can send any addtional info also by creating custom claims in payload.
+  
+  
+  
+Usage of JWT in Single Sign On (SSO) :: 
+
+    lets assume we have 3 separate applications and one authentication server.
+    
+    once user login to any of the server it internally calls authentication server after succesfully authentication it generates jwt token and sends back to client.
+    now if client make any http request to second application it need not to authentciate again by giving credentials. just need to pas the existin jwt token recieved from application one.
+    
+    so it internally makes call auth server and pass this token once it is validated it proceeds and returns response.
+    
+    
+    
+    
+    
+ Drawbacks of JWT :: 
+ 
+  (1) Token Invalidation :: 
+   
+             lets suppose a user is logged in application and have jwt token and  now we blocked that user to use this application but still he can hit any request if that jwt expiry time is not yet over. this can be overcome by some of the methods.
+             
+            (a) storing the blocked user's jwt token so that  next time if that user make any request even if he was blocked we can check that user's jwt in our blocked jwt list if it was there we won't let the api further.
+                  but here we need to store the blocked tokens in either in memory or db which again leads to latency while acessing api because it needs to make db call to verify token.
+            (b) changing the secret key itself so that if that user makes any request next time the digitl signature will not be validated with new secret key . but this will make all the remaining users also invalidate.
+            (c) token should be short lived (expiry time should be very less).
+            (d) token should be used only once.
+            
+            
+   (2) jwt is encoded not encrypted so that anyone can decode and get payload info . so better to use  jwe there payload is encrypted.
+   (3) some times jwt might not contains last part (signature) amd also in headers part alg value will be none . those kind of tokens should be rejected . those are invalid.
+   (4) in headers server will send public key also but we should not use it to verify the digtal signature because in middle hacker might chnage the data and put that data in payload and change digital signature and chnage this public key with hackers public key . so while verifying token if we use that public key we may get hacker's interpreted data .
+        so instead of directly sending public key we can send kid like public key's id so that while verifying token it will fetch the public key based on id and verifies the data. 
+        but some times hacker might place his public key in server itself and add it's id in tokens so need to choose best safest thord party authentcation server.  
+                 	
+   
+   
+   
+ Steps to implement JWT authentication flow :: 
+ 
+ 
+ (1) create user   ::create users dynamically (we can use same flow of form based method only (we can create through app.prop file or dynamically through exposing an api).
+ (2) genrate token :: once user needs to authenticate he will provide username and password , we will authenticate them with user details in our db and then we need to generate a jwt token to user.
+ (3) validtate token :: after authentication whenever user wants to fetch any business api he will pass the jwt token and wee need to verify that token.
+ (4)  refresh token :: jwt token will be expired after it's exporation time so at that time again user should  not provide username and password to authenticate we need to implement a flow to  generate a new accesstoken to that user when ever old one get's expired.
+ 
+ 
+       
+   Unlike form based or basic authentication method jwt has no inbuilt implementation for authenticating and authorization , so need to impelement by ourself , there are many ways to implement jwt in many ways like directly creating api's in cotroller itself for generate token and refresh token.
+   
+   we will implement jwt with spring securty framework.
+   
+   
+   In existing flow :: 
+    
+       * login request comes to security filter chain from there it goes to respective security filter based on authentication methods we are using and creates a authentication object.
+       * now this object is passed to provider manager (implementation of authentication manager) there it has list of authentication providers and it iterates to each provider and call it's support method.
+       * if any of the provider supports the authentication object so it deligates that object to that respective provider and it has all the logic of authentication . 
+       * so  after successfull authentication it gives back this authentication object to security filter and from ther it stores in securoty context holder.
+       
+       
+    so new if we add our custom chnages in this flow we can implement jwt authentication.
+    
+    (1)  create our custom security filter .
+    (2) in that filter create a custom authentication object.
+    (3) create a custom authenictaion provider and add logic to support custom authentication object and add this authentication provider in provider list of provider manager.
+    (3) so as sooon as our custom authentication object reaches to provider manager it iterates through all the providers in it's list and call support method , so only our custom provider supports that object provider manager will deligates this request to our custom authentication provider.
+    
+    
+    
+    
+    Detailed implementation of jwt step by step  for generating token ::
+    
+    
+   (1) Add dependecncies in pom.xml of jwt that are  required for token genration and json parser for parsing key value pair of payload.
+   
+   (2) now we need to create a custom security filter (JwtAuthenticationFilter) which will handle "/genrate-token" api and create an Authentciation object(with user entered username and password).
+     
+         We have created authentication object (UsernameAuthenticationToken child of Authentication class)  which will supported by DAOAUthentication provider (which is used in form-based authentication method)  as we use help of that provider and we are not writing any separate authentication provider to authenticate , because authenticating user is same flow for every mehtod (fetching password for user from db).
+         
+         once successfull authentication we will write a seprate function to generate JWT token and set this token to reponse headers .
+            
+            eg ::
+             
+                private static final String SECRET_KEY = "your-secure-secret-key-min-32bytes";
+                private static final Key key = Keys.hmacShaKeyFor(SECRET_KEY.getBytes(StandardCharsets.UTF_8));
+
+
+                // Generate JWT Token
+                public String generateToken(String username, long expiryMinutes) {
+                           return Jwts.builder()
+                                    .setSubject(username)
+                                    .setIssuedAt(new Date())
+                                    .setExpiration(new Date(System.currentTimeMillis() + expiryMinutes * 60 * 1000)) //in milliseconds
+                                    .signWith(key, SignatureAlgorithm.HS256)
+                                    .compact();
+                 }
+                 
+               as of now for signing the token weare using hmac algorithm (where sigining and verification will be done with one single private key).
+               
+               with our private string we will generate that key .
+               
+               
+     (3) create our custom security filter chain ::
+     
+         In that filter chain create a object of jwtAuthenticationfilter we created. and also need to mention where this filter should invoke. here we are mentioning that this filter should execute before UsernamePasswordAuthenticationFilter.class.
+         
+         @Bean
+         public SecurityFilterChain securityFilterChain(HttpSecurity http,AuthenticationManager authenticationManager,JWTUtil jwtUtil) throws Exception {
+
+                        JWTAuthenticationFilter jwtAuthenticationFilter = new JWTAuthenticationFilter(authenticationManager,jwtUtil);
+
+
+                       http.authorizeHttpRequests(auth -> auth
+                             .requestMatchers(new AntPathRequestMatcher("/api/registerUser")).permitAll()
+                             .anyRequest().authenticated())
+                             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                             .csrf(csrf -> csrf.disable())
+                            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                     return http.build();
+       }
+       
+       
+       
+       in form based and basic authentication we are not creating object of authentication  manager and adding providers list everything is managed by springboot .BUt here in JWT we need to create explicitly object of authentication manager and add DaoAuthentication provider in provider list because we are creating authentication object which will be supported by DAOAuthenticationProvider.
+       
+         @Bean
+         public AuthenticationProvider authenticationProvider() {
+                DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+                authProvider.setUserDetailsService(userDetailsService);
+                authProvider.setPasswordEncoder(getPasswordEncoder()); // use same encoder used while saving password
+             return authProvider;
+         }
+
+
+         @Bean
+         public AuthenticationManager authenticationManager(){
+                 return new ProviderManager(Arrays.asList(authenticationProvider()));
+        }
+        
+        
+      now you can try login with /genrate-token by giving user credetntials it will give jwt token in response headers.
+                  
+
+   
+     
+     Detailed implementation of  jwt step by step  for valdating token ::
+     
+      once user was authenticated and from next time whenever hits any business api this token needs to be sent through authorization headers.
+      need to create custom filter and provider to validate the token
+      
+     (1) create a custom validation filter to handle the validation flow : 
+           
+            fetch token from headers and create and custom JwtAuthenticationToken object (which is child class of authentication object) and pass this authentication object to authentication manager.
+            
+    (2) create a custom provider which will support the above created authentication object :
+               
+               fetch the username from token in authentication object with util functions and fetch userdetails from db for that user , if userdetails were found set isauthentcated to true and pass this object back to filter and there we will store in security context holder and move further for next flow and we can use this security context across the request life cycle.
+               
+     (3) in our custom security filter chain  add this filter also and add oru custom provider in providermanager list also . 
+     
+     
+     
+     
+     
+     Detailed implementation of Refresh token :: 
+     
+     Refresh token is also same kind of jwt token but while creating token we set  have more expiry time than access token. because access token should be short lived (if token was leaked we can't do anaything so it should be short lived only).
+     
+     As access token were short lived we can't ask user to re authenticate every time so there we use this refresh token , if access token was expired then we will ask server for new access token by giving this refresh token, so it will valdate this refresh  token if it is not expired it will generate and return  new access token.
+     
+     we will sent this token in cookies not in header, and this cookies will only sent only when we need to call refresh token api.
+     
+     (1) create refresh token :
+             
+             while generating access token itself we will generate a refresh token and set it in coookies 
+             
+             eg :: 
+             
+                   String refreshToken = jwtUtil.generateToken(authenticate.getName(),7*24*60);
+
+                   Cookie refreshCookie = new Cookie("refreshToken",refreshToken);
+                   refreshCookie.setHttpOnly(true);
+                   refreshCookie.setSecure(true);
+                   refreshCookie.setPath("/refresh-token");
+                   refreshCookie.setMaxAge(24*60*7);
+
+                   response.addCookie(refreshCookie);  
+                   
+                   
+      (2) create a new custom flter and configure it to process only for "/refresh-token"  api.
+      
+              fetch refresh token from cookies and vildate this token by help of same provider which we created during validating accesstoken. once the refresh token was validated then generate a new access token and set it in headers and return.
+              
+       (3) add this filter in our custom security filter chain.
+       
+          
+             so finally after adding all filters for generating , valiating , regenerating our security filter chain looks like : 
+              
+                         @Bean
+                         public SecurityFilterChain securityFilterChain(HttpSecurity http,AuthenticationManager authenticationManager,JWTUtil jwtUtil) throws Exception {
+
+                                   JWTAuthenticationFilter jwtAuthenticationFilter = new JWTAuthenticationFilter(authenticationManager,jwtUtil);
+                                   JWTValidationFilter jwtValidationFilter = new JWTValidationFilter(authenticationManager);
+        JWTRefreshFilter jwtRefreshFilter = new JWTRefreshFilter(authenticationManager,jwtUtil);
+
+
+        http.authorizeHttpRequests(auth -> auth
+                        .requestMatchers(new AntPathRequestMatcher("/api/registerUser")).permitAll()
+                        .anyRequest().authenticated())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .csrf(csrf -> csrf.disable())
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(jwtValidationFilter,JWTAuthenticationFilter.class)
+                .addFilterAfter(jwtRefreshFilter, JWTValidationFilter.class);
+        return http.build();
+    }                               
+        
+        
+        
+  
+  
+ 
+ 
+ Authorization in jwt :: 
+ 
+     same as other authentication method just need to mention in security fiter chain which role has permission for a API 
+     eg :: 
+     
+         .requestMatchers(new AntPathRequestMatcher("/api/saveUserDetails")).hasRole("ADMIN")              
+                         

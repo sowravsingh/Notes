@@ -1,0 +1,164 @@
+
+                                             SPRING MVC
+                                             
+Spring MVC is a framework that helps  JAva to build  web Applications. 
+
+Before spring we use servlets
+       * In Servlets we have Web.xml where we route endpoints to their respective servlet files.
+       * In each servlet file again we have only one get mapping and one post, one delete , one update mpping methods
+       
+Drawbacks ::
+        * No .of Endpoints Increase then No of routings in web.xml will also increase.
+        * In each Servlet file only 4 methods were there.       
+
+
+
+spring MVC came to solve problems with servlets ::
+
+(1) Removal of web.xml 
+      Annotation based configuration
+      
+(2) Inversion of control  : it is a more flexible way to manage object dependencies and its life cycle  through Depenedcy Injection     
+
+
+
+SpringBoot Over Spring MVC :: 
+
+*Dependency management is first advantage of springboot over spring MVC No need to mention version in pom.xml for any depenedncy . mention only springboot version it will automatically download the remaining versions suitable to springboot  version.
+
+*Auto Configuration  Best exmaple : @SpringBootApplication  
+                                    no need of separatley mentioning @componentScan( scanBeanPckages ="com.package")  it automatically scans the package where this main method exists . even though we can still give other packages also but directly to @springbootapplication. no need again @componentScan a.
+
+* Embeded Server Springboot have its own default server (Tomcat) . so that it will run our application in 8080 port . (it will run the jar file that was compiled by maven and kept in /target folder).                                   
+
+
+it supports conevntion over configuration  i.e it has default configuration even if u don't like them or want to override u can alter them ( like : u don't need to mention version in pom.xml . but still if u want a particular version u can mention it , @SpringBootApplication  will scan the current package even if u want other packages also u can mention those packages to scan.
+
+
+Layered Architecture of springboot ::
+
+
+                ---------------------------------------------------------------------------------
+                |                                                                               | 
+      client----------->Controller Layer <---------->Service Layer <--------->Repository Layer--|----->DB
+                |                                                                               |
+                ---------------------------------------------------------------------------------
+                
+                
+                Other Components Like :: 
+                (1) DTO(Data transfer Objects) these are objects same as pojos used as request object and reponse object
+                (2) Utilites these are some java files where we maintain constants and also some re usable code used across other files like in services.
+                (3) Entitys these are pojos and these are the classes that represents tables . in these pojos we will be having variable names as same with columns of a table.
+                (4) Configuration these are the files where we maintain confgurations like jdbc connection credentails , custom port and other configurations. 
+                  
+                                                                                       
+
+
+                                                              MAVEN 
+                                                              
+Maven is project Management tool  which take care of documentation, build, dependency ,deploy of our project
+
+It will compile and download all the dependecies mentioned in pom.xml and build our project
+
+every pom.xml has a parent pom.xml so that it will inherits all the dependencies from the parent pom also.
+
+
+
+Break Down of Pom.xml :: 
+
+(*)
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+             
+This will Mention which version of pom we are using and schema of the pom.xml
+
+
+(*)
+    <groupId>com.vassarlabs.pestlibrary.api</groupId>
+    <artifactId>platform-pestlibrary-api</artifactId>
+    <version>0.0.1-SNAPSHOT</version>    
+    
+
+Here Artifact id is the unique name of our project , so this will contains our porject info 
+
+
+(*) 
+    <parent>
+        <groupId>com.vassarlabs.pestlibrary</groupId>
+        <artifactId>platform-pestlibrary</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>    
+    
+ This is the configuration of parent pom.xm of the current pom.xml
+ 
+ 
+ 
+(*)
+
+   <dependencies>
+        <dependency>
+            <groupId>com.vassarlabs.common.utils</groupId>
+            <artifactId>platform-common-utils</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+   </dependencies>     
+   
+
+In this dependency block we will add all the required dependencies that are required for our project
+
+
+(*)   
+     <reposotiries>
+               ---
+      </reposotiries>
+here we will mention url (generally central maven url) from where to download the jar of the external dependencies we mentioned in dependecy block 
+
+
+
+(*) 
+      <build>
+        <plugins>
+        </plugins>
+    </build>
+    
+    
+ Here we will mention to maven to do any additional goal (tasks) in a particulr phase (life cycle) and what to do.
+ 
+ 
+ (*)
+     <distributionManagement>
+        <repository>
+            <id>my-repo</id>
+            <url>http://repository-url/path/to/repo</url> <!-- Remote repo URL -->
+        </repository>
+        <snapshotRepository>
+            <id>my-snapshot-repo</id>
+            <url>http://repository-url/path/to/snapshot-repo</url> <!-- Snapshot repo URL -->
+        </snapshotRepository>
+    </distributionManagement>
+    
+    
+ Here we will mention the repository url where we want to deploy our jar (in local or any remote repository) . if we want to deploy in any remote repo we need their credentails like user name and password that will be mentioned in settings.xml in our local repo folder and they are mapped here with the <id>.
+ 
+ we have our local repo (.m2 folder).    
+ 
+ while downloading the required dependencies in maven first it will search for the  jar in our local repo if it couldn't found then it will download from maven central website and keep that jar in our local repo . so from  next time it can access jar from local repo only.
+ 
+ 
+ Life Cycle of Maven 
+ 
+ validate  --> compile --> test --> package --> verify --> install  --> deploy
+ 
+ (*) validate the project structure (mvn validate)
+ (*) compile the source code. 
+ (*) run the unit tests written in test folder.
+ (*) after download required dependencies it will pacakage the project into a jar 
+ (*) verify the integrity of the package 
+ (*) install or place all the artifacts in our local repo
+ (*) deploy the jar in local or any remote repo.
+ 
+    
+          
+                            
+             
+                                    

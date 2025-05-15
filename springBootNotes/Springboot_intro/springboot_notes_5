@@ -1,0 +1,528 @@
+                                                                         Interceptors
+
+
+
+Interceptor is a component helps to intercept a http request and response before it reach to controller level .
+
+Basically it helps us to do any task (logging, authenticating etc..) before it reaches to controller level.
+
+Interceptor comes into picture betweeen Dsipatcher servlet and controller.
+
+Steps :: (1) create your own custom handler that implements HandlerInterceptor class 
+            
+            implement all the three methods (preHandle,postHandle,AfterCompletion) and write ur own code in those methods.
+
+            pre Handle method will be called before excution of controllers
+
+            post handle method will be called after completion of controller execution
+
+            Aftercompletion will be called even any excetption occurs this method will execute (similarly like finally method) , where as any exception occurs post handle will not execute.
+
+
+          (2)  Register your Interceptor so that springboot  identifies it as interceptor and also add to which api's it should apply and for which it should not apply .
+
+
+              Implement  WebMvcConfigurer class and implement addInterceptors method .
+
+
+              eg  ::
+
+                     @Autowired
+                     CustomInterceptor customInterceptor;
+
+                     
+                     @Override
+                     public void addInterceptors(InterceptorRegistry registry) {
+                                   registry.addInterceptor(customInterceptor)
+                                      .addPathPatterns("/api/*");
+                     }
+
+
+
+
+We looked how to intercept a http request before reaching controller . 
+
+Now we  look how to intercept a http request after reaching controller .
+
+it has 2 steps ::
+
+
+      Step -1 :: create your custom annotation.
+
+
+                   @Target(ElementType.METHOD)
+                   @Retention(RetentionPolicy.RUNTIME)
+                   public @interface CustomAnnotation {
+
+                             public int intKey() default 24;
+
+                             public String[] stringArray() default {"sowrav","teja"};
+                      } 
+
+
+
+                 Here we have created an annotation called  CustomAnnotation
+                 
+                 and we have given again 2 annotations basically called as meta annotation (i.e annotation over a annotation)
+
+                 @Target :: this annotation tells us where we have to use this annotation. either (at method level or at class level...)
+
+                 @Retention :: upto at which etent this annotation should be present i.e if we gve value as source it will be present at jdk level only if we compile this annotatio will be gone , if we give class level it will present upto compile time and if we give run time this annoattion will work at time of application running level.
+
+
+                 we have fields also for which we can give values at time of using this anotation.
+
+
+
+         Step -2 ::  create a Advice along with point cut expression at ur aspect class , so that we will mention there if anything needs to be done .
+         
+                    @Around("@annotation(com.spring.components.CustomAnnotation)")
+                    public void AroundCustomAnnotation(ProceedingJoinPoint joinPoint) throws Throwable {
+                                System.out.println(" Doing something before user service class");
+                                joinPoint.proceed();
+                                System.out.println("completed intercepting in user service class");
+                    }         
+
+
+              It is the same process of how we discussed in AOP Lecture to do something for all the methods or classes that are annotated with a annotation given in point cut expression.
+
+
+
+
+
+
+
+* we can have multiple interceptors also . and it  will follow the order in which we are registering them . 
+ 
+     Flow will be ::  interceptor 1 (pre handle)  --> interceptor 2 (pre handle) --> Controller invoking  ----> interceptor 2 (post handle)   --->  interceptor 1 (post handle)
+
+
+                                            
+
+
+
+
+
+
+                                                        Filters.
+
+
+Filters are used if we want to  intercept a HTTP request even before it is reaching the dispatcher servlet .
+
+
+intercpetors and filters both are used to intercept a http request but interceptors intercept after servlet and before controller , but filter intercept before serlvets .
+
+
+Creating Custom Filters ::
+
+               step -1 :: Create Custom filter class by implementing Filter class and override 3 methods of  it (init, dofilter, destroy).
+
+
+
+                         in dofilter method we should call the other filters in order (if no other filters were there in order it will go to servlet and rest flow continues ).
+
+
+
+
+               @Override
+               public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
+                         System.out.println("inside custom filter ");
+                         filterChain.doFilter(servletRequest,servletResponse);
+                         System.out.println("completed my custom filter");
+                  }
+
+
+                  
+
+              Step - 2 :: creating beans for them and adding configurations like to which apis it should apply  
+
+
+                      @Bean
+                      public FilterRegistrationBean<CustomFilter> getCustomFilter(){
+                               FilterRegistrationBean<CustomFilter> filterFilterRegistrationBean= new FilterRegistrationBean<>();
+                               filterFilterRegistrationBean.setOrder(2);
+                               filterFilterRegistrationBean.setFilter(new CustomFilter());
+                               filterFilterRegistrationBean.addUrlPatterns("/api/*");
+                               return filterFilterRegistrationBean;
+                      }
+
+
+
+
+
+
+          Same as interceptors we can have multiple filters also but ordering is while creating the bean for them we will provide order also (mentioned above)            
+
+
+
+
+ 
+     Flow will be ::  filter1 -> interceptor 1 (pre handle)  --> interceptor 2 (pre handle) --> Controller invoking  ----> interceptor 2 (post handle)   --->  interceptor 1 (post handle) ---> filter 1
+
+
+
+
+
+
+
+
+
+                                                                           HATEOS RESTFUL API
+                                                            Hypermedia As The Engine Of Application State
+
+
+ It tellls the client what could be the next step u can take after this.
+ 
+ Basically along with response for any api we will send what are the next APIs that are elgible after this request.
+
+if you make a http request it will give u response along with it gives other api's you can use in next steps.
+
+
+Advantages :: 
+   (1) API Discovery (client can call the api's dynamically instead of hardocoding all the endpoints in their code)
+   (2)  Loose coupling with server ( as they can use directly the end points if  any endpoint got updated then without hateos API will be failed if they are not even updated at clinet level also. )
+
+steps to send Links :: 
+
+
+      step -1 :: Add dependency of Hateos in pom.xml 
+
+      Step -2 :: create a custom Response class that extend RepresentationModel of hates so that this pojo will holds the links u provide 
+
+      step - 3 :: create a link ,  we can create a link using WebMvcLinkBuilder or Link.of().
+
+                  (a)  Link updateLink = WebMvcLinkBuilder.linkTo(DemoController3.class).slash("updateDetails").withRel("self").withType("Update");
+
+                  linkTo(DemoController3.class)   ---> here we are linking to a class so the api map we put on that class will be considered , or else we can link to api map that was givven to a method also by giving linkToMethod also .
+
+
+                  (b) Link deleteLink = Link.of("/api/"+"/deleteUser").withRel("delete").withType("Post");
+
+      Step -4 :: Add that links to  your pojo .
+
+
+
+      sample response  ::
+
+
+
+         {
+            "name": "sowrav",
+            "id": "123",
+            "_links": {
+                  "self": {
+                      "href": "http://localhost:8080/api/updateDetails",
+                      "type": "Update"
+                      },
+                  "delete": {
+                      "href": "/api//deleteUser",
+                      "type": "Post"
+                     }
+                }
+        }
+
+
+
+Make sure don't more n more api links in response becoz it may bloat up the response.
+
+
+
+
+
+
+                                                                                  
+
+                                                                                  Response 
+
+
+Repsonse consists 3 parts :: Status Code , Headers, Body
+   
+we can send Response by using  REsponseEntity class object.
+
+we can build ResponseEntity<> with status code and headers and body.
+
+
+
+If u send Response in any custom response Object and if u set status code inside that object. client  will not consider that status code (i.e at client level by defualt sattus code will be 200 only if any status code was not recieved). 
+
+so . solution will be send the response object as body to Response entity and set ur desired status code to response entity status . so that client will consider that status code.
+
+
+We can send our custom object also but http status we are setting to it will not be reflected directly to the client side , whatever status code u send if request is sucess then it will be default as 200 only. actual status code will be inside in our custom Response Object.
+
+
+We can have different Status codes 
+
+1XX   ----  Represents Information Response , i.e server  sends response as it has recieved request and further actions will be taken (interim response).
+            Basically client pass this request and get all the information (typically what are the requirements for the actual response) and confirm can i do the actual response 
+
+2XX  ----- Request was Successfull
+
+3XX  ------ Redirection of request url to different url
+
+4XX  -----  issue at the client resuest
+
+5xx  -----  issue at the server side
+
+
+
+Detailed EXplainations of Each status code :: 
+
+
+
+2xx (Successfull) ::
+    
+   200 (OK)  ---      Request is Successfull and we are returning response body no new resource is created.
+   201 (CREATED) ---  Request is successfull and new resource was created .
+   202 (Accepted) ---  Request is accepted and processing is not yet started (like batch processing or raising kafka message an leaving or invokig threads ), basically just to initiate some thing .
+   204 (No Content) -- Request is completed and porcesed successfully but no response was returning .(basicaly used to delete some thing)
+   206 (Partial Content) -- Request was successfull but partially if we are tring to add 100 users but 95 usrs added and 5 didnot got added at that time we send this http code 
+
+
+
+3XX (Redirectional) here client should do additional task to complete the request . we will mention and give the url to which current api  was redirected in headers 
+
+  301 (Moved Prmenantly)  --- all the requests for this api should redirect to new url given in the headers (client should manually call again with new url).
+  
+  308 (Permenant Redirect) --- same as 301 but new url should also be the same method type (like old one is get then new one should also be get method only).
+  
+  304 (Not Modified)    ---  Generally by using this status code client can get to know info about any resource whether it is updated or not it will send a time through headers and in server side code will check whether resource was updated or modified from the give time to today.
+
+
+
+
+  4XX (Validation errors ) basically thesee errors will get before reachig server Actual business code logic 
+
+   400 (Bad Request)    --- If client misses any require details  in request (like missing a field in payload )
+
+   401 (UnAuthorized)  --- if authorization fails  like client fails to send any csrf token or other tokens 
+
+   403 (Forbidden)    ----- If user doesnot have permission to to that activity.
+
+   404 (Resource not found) --- Request not found (or data couldnot found the details it was requesting )
+
+   405 (Method Not Allowed) --- Doing Request with wrong http method (doing post call with get method )
+
+   422 (un processable entity)--- Some authorization error in business logic (not in user mngmnt ). everything was fine in usermngmnt just this we can not do certain activiy for the given entity then we will give this response code. (for eg : france users are not allowed to open bank account , this business logic validation we cannot put in authorization , it will be handled here).
+
+   429 (Too many requests) --  if user was making too many requests in a given time . 
+
+   409 (collision or conflict) -- if same requests was hit again if already same request was running previously.
+
+
+
+  5XX (Server side errors) 
+
+   
+   500 (Internal Server Error) -- any error occurs at backend code logic (all the exceptions will return this status code exceptions).
+   501 (Not Implemented)     ----  Api was written in controller level but its actual code logic was yet  implemented then we will return this status code.
+   502 (Bad GateWAy)       ---- Any error that was happend at server that was actaing as Reverse proxy  with main stream application like any error at nginx (typically like unable to maintain connection with required port or if nginx was down).
+
+
+
+
+
+                                                                              
+
+                                                                              Exeption Handler
+
+
+
+ Servlets   --> Any EXception  ---> HandlerExceptionRessolverComposite                                                       
+
+                                                 EXceptionHandlerExceptionRessolver  ------> ResponseStatusExcetptionRessolver ----> DefaultHandlerExceptionRessolver
+
+                                                                   DefaultErrorAttrributes ---->Return Error Response
+
+
+
+
+We can Handle the excpetions that were thrown in our code in 2 use cases 
+
+ultimately if there any exception occurs server should return message and status code this can be managed in 2 ways 
+
+
+use case  - 1:
+  
+       catching the exception and returning an Response entity with message and appropriate status code for that exception
+
+       eg :: 
+
+          try {
+              throw new CustomException("customException was thrown",HttpStatus.BAD_REQUEST);
+          }catch (CustomException e){
+            ErrorResponse errorResponse = new ErrorResponse(e.getHttpStatus().value(),e.getMessage(), new Date());
+            return new ResponseEntity<>(errorResponse,e.getHttpStatus());
+          }   
+
+
+       so, here we are directly providing response entity , no involvement of springboot exception handling mechanism.
+       
+
+       so it is a straight forward but if we are throwing  same custom exception in many methods , we have to write same code of cathcing that exception and returning response entity manually at every where.
+
+
+
+use case -2  ::
+
+        we will throw exception and let springboot ressolve that excpetion and return response entity .
+
+      steps ::  
+           first tht exception will come to HandlerExceptionRessolverComposite from there in a sequential manner it will go to 3 rssolvers (EXceptionHandlerExceptionRessolver, ResponseStatusExcetptionRessolver,DefaultHandlerExceptionRessolver).
+  
+            if any ressolver ressolves that exception it will set status code and message and return it directly to DefaultErrorAttrributes without going to next ressolvers . from there it will return error response.
+
+            if none of the ressolver able to solve the exception it will also come to DefaultErrorAttrributes , but now it will set default http code (500), default message (internal server error) and return the response .
+
+            That's why even though if we throw any custom exception with some http code (without configuring it to ressolve by any ressover ) it will give default status code and message.
+
+
+
+
+let's understand what type of exceptions does each ressolver ressolve :: 
+
+      (1) ExceptionHandlerExceptionRessolver ::   Handles  @ExceptionHandler , @ControllerADvice annotation.
+ 
+            @ExceptionHandler :: 
+
+               a)  Directly Creating ResponseEntity and returning it
+
+                        write a handler method to handle exception in your controller class  and annotate ur method with @ExceptionHandler and provide the exception u want to handle in this method.
+
+                        @ExceptionHandler(CustomException.class)
+                        public ResponseEntity<?>  handleCustomException(CustomException e){
+                                       
+                                       ErrorResponse errorResponse = new ErrorResponse(e.getHttpStatus().value(),e.getMessage(), new Date());
+                                        
+                                        return new ResponseEntity<>(errorResponse,e.getHttpStatus());
+                            }
+
+                       
+                       you can handle multpile exceptions in a single handler method also 
+
+
+                       eg :: 
+
+
+                             @ExceptionHandler({CustomException.class, NullPointerException.class})
+                             public ResponseEntity<?>  handleCustomException(Exception e){
+
+                                     ErrorResponse errorResponse = new ErrorResponse(HttpStatus.FORBIDDEN.value(),e.getMessage(), new Date());
+                                     return new ResponseEntity<>(errorResponse,HttpStatus.FORBIDDEN);
+                                }
+
+
+                b)   setting status code and message in response (but not create Response Entity) , let DefaultErrorAttrributes create response entity from response and return it.
+
+
+                      eg :: 
+
+
+                               @ExceptionHandler({CustomException.class, NullPointerException.class})
+                               public void  handleCustomException(HttpServletResponse response, Exception e) throws IOException {
+
+                                         response.sendError(HttpStatus.BAD_REQUEST.value(),e.getMessage());
+
+                                 }
+
+
+
+             But make sure only one  method (for one exception) should use , if we have more handler methods it will through exception     
+             
+
+             Till now we handled our exceptions at controller level i.e for same customexception if we are throwing at multiple controllers we have to write same handler methods at evry controller for handling that exception (which is again duplicate)
+
+
+             Now @ControllerAdvice annotation comes into picture .
+
+             we will write a class as GlobbalExceptionHandler and will put all the handler methods in that class and annotate class with @ControllerAdvice.
+
+             so now writing at one place it can handle that particular exception if it was thrown from any controller class.
+
+
+             eg ::   
+
+
+                    @ControllerAdvice
+                    public class GlobalExceptionHandler {
+
+                          @ExceptionHandler({CustomException.class, NullPointerException.class})
+                          public ResponseEntity<?> handleCustomException(Exception e){
+
+                                 ErrorResponse errorResponse = new ErrorResponse(HttpStatus.FORBIDDEN.value(),e.getMessage()+"exception handled at global exception class", new Date());
+                                return new ResponseEntity<>(errorResponse,HttpStatus.FORBIDDEN);
+                           }
+                    }
+
+        Note :: if we are handling custom excption at controller level and also at   GlobalExceptionHandler class priority will be given to method handled at controller level.
+           
+               if we create mutiple custom exceptions by extending parent exception (RunTimeException), if we handle directly parent exception also it will handle all the child exceptions that were created.
+         
+
+
+     (2)  ResponseStatusExcetptionRessolver  ::    Handles @ResponseStatus annotation 
+
+         
+             for any customException we can give response status and message in ResponseStatus annotation so that this ressolver takes those and set them to the response entity.
+
+             we can give only response status and also both response status and message .
+
+             use case -1 :: giving response status annotation to the custom exception class itself , so that if any method throws this exception ResponseStatusExcetptionRessolver will automatically picks this  response status and message 
+
+                for eg ::
+
+                       @ResponseStatus(value = HttpStatus.ACCEPTED,reason = "throwing customException2 ")
+                       public class CustomException2 extends  RuntimeException{}
+
+
+                 
+                 while throwing exception even though u give status code and message ressolver will take status code from Response status annotation.
+
+
+           We can use @ReponseStatus annotation on above exception handler methods also .
+           
+           use case -2 :: giving   @ReponseStatus annotation on a exception handler method which was directly returning reponse entity (so no involvment of DefaultErrorAttrributes)
+
+              eg :: 
+
+                    @ResponseStatus(value = HttpStatus.OK, reason = "customException")
+                    @ExceptionHandler({CustomException.class, NullPointerException.class})
+                    public ResponseEntity<?>  handleCustomException(Exception e){
+
+                              ErrorResponse errorResponse = new ErrorResponse(HttpStatus.FORBIDDEN.value(),e.getMessage()+" exception handled at controller level ", new Date());
+                              return new ResponseEntity<>(errorResponse,HttpStatus.FORBIDDEN);
+                    }
+
+
+
+
+               here flow will be first the customexception will be ressolved in exceptionhandlerexceptionressolver and status responseentity will be having status code as 402 forbidded but again  in ressolver itself it will call one more method invokeand handle where it will update status code by taking from response status annotation , so finally our status code will be 200 ok    
+               
+
+        use case -3 :: giving   @ReponseStatus annotation on a exception handler method which will set response's  statuscode  such that DefaultErrorAttrributes will prepare response entity and will return response body
+    
+
+              eg :: 
+
+                  @ResponseStatus(value = HttpStatus.OK, reason = "customException")
+                  @ExceptionHandler({CustomException.class, NullPointerException.class})
+                  public void  handleCustomException(HttpServletResponse response, Exception e) throws IOException {
+
+                            response.sendError(HttpStatus.FORBIDDEN.value(),e.getMessage());
+
+                    }
+
+
+
+              here status code  will be 500 and internal server error , because here we got an exception while ressolving our custom exception 
+              
+              flow will be like  first the customexception will be ressolved in exceptionhandlerexceptionressolver and as here we are not preparing reponse entity but setting response status code and we will commit the status code and message such that as it was committed if anyon tries to change it again it will throw exception that's what happend here , as we know at the end of exceptionhandlerexceptionressolver we will call invokeandhandle  method where will try to set the response status code again so there we will get 500 exception.
+
+
+
+         so never try to use both annotations at a time which will lead some confusion , if u want both then don't do anything inside handler method , such that exception will be caught but respnse statu code will be set based on @ReponseStatus annotation value.
+         
+
+
+  (3) DefaultHandlerExceptionRessolver :: it will handles all the default sprig framework eceptions such as method not found, resource not found exceptions ect..
+               

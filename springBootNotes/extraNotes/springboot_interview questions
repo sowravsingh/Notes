@@ -1,0 +1,263 @@
+
+
+
+(1) what is spring boot ::
+
+* it is a java frame work that makes easier to create and run java applications (like web applications).
+* it helps developer to focus more on code rather than on adding dependenices like spring (here every thing will be auto configured).
+* add your dependency in pom.xml file everything will be auto configured.
+
+for eg : if you want to configure tomcat to ur applictaion . no need to install it in ur system and configure it to eclipse . just need to add dependency of tomcat in pom.xml.
+
+
+
+(q) explain @SpringbootApplication purpose :: 
+
+    ans :: when we create an springboot application one main class will be created automatically and annotatted with @SpringbootApplication
+          
+          @SpringbootApplication  = @Configuration +@EnbleAutoConfiguration+@ComponentScan
+
+
+          @configuration :: to represent a class as confgiurational class we will annotate it with @configuration , in that class we will configure many things like configure our beans , etc...
+
+          @EnbleAutoConfiguration  :: this will automatically loads all the components that were required for our project based on dependencies that we were provided in pom.xml (we mention springboot-starter-web so it will load all the required componnts for tomcat server to start our web application.)
+
+
+
+
+--------------------------------------------------------------------------------------------------------------------------
+
+(2) working of springboot ::
+
+** springboot startes scanning all the starter dependencies in the pom.xml file and start downloading them and auto configure all the modules (basically builds a jar).
+
+
+** springboot starts by running the main method in ur main class
+
+
+----------------------------------------------------------------------------------------------------------------------------
+(3)  Top 5 springboot Annotations 
+
+**(i) @SpringbootApplication -> consists of three annotations  1 : configuration,, (2) Enableautoconfiguration... (3) componentscan(it says to scan other packages alsoto check whether any spring class is there need to build beans).
+     typically this annotations will be used in main class.
+     
+***(ii) @Component -> make any class as a spring bean. so that it will be scanned while running the main class .
+
+***(iii) @Autowired  -> if we have a dependenicy of any class while using this autowired annotation we can create an object of that class.
+
+***(iv) @Service  -> it is same like component annotation basically all the business logic code will be written in this class.
+
+***(v) @RestController -> it will marks the class as rest controller. where rest api's are written & it is a advanced version of @controller annotation including @ResponseBody annotation(used to return json body as responses).
+
+***(vi) @RequestMapping (vii) @Repository.
+
+-----------------------------------------------------------------------------------------------------------------------------
+
+(4) what is thymeleaf :: 
+
+by using thymeleaf we can build a dynamic html page and can return as a response.
+
+(5) how you will connect jdbc to your springboot application. 
+ (6) what do u mean by tight coupling and loose coupling.
+
+
+(q) why we choose maven over gradle 
+
+(q) what happens if we don't give @ReponseBody annotation and returned anything from a controller?
+
+   if u return any thing (String , or object ..etc) without giving @ResponseBody to that controller method springby defaullt consider it as a view and tries to searhc for that servlet file. as that file  doesnot exists it will return 404 resource not found error.
+   
+
+----------------
+
+(q) what is use of applications.properties file  
+ans : here we will specific all the configurations like database connectivity or server ports and other things. 
+
+(Q) why you prefer java :: 
+
+  ans :; 
+
+  java is a platform independent 
+  
+  java uses oops so that it makes code more reusable and in strutural way , in oops everything is dealed as objects so that it won't allow to access variables directly , 
+
+  java is used in building large entreprise web applications with help of springbooot
+
+  java has a huge community support 
+
+
+
+(q) diff between Array & ArrayList  
+ ans :: array is size specific where ArrayList is not .
+
+(q) difference between ArrayList and Linked List
+
+  ans :: arraylist uses dynamic array and where as Linked List uses douly linkedlist dsa so that in arraylist elements are stored in a contigeous array and so fetching is fast by deirectly getting on index based where as in linked list eachh element is stored as node and are connected one by one so here for fetching an element it takes o(n) time.
+
+
+(q) what is optional class.
+
+    ans ::   optional class was introdced from java 8 and helps us from nullppointer exceptions as it wraps our value   in a optional class.
+       
+(q) what the use of option.of() and option.nullable()  
+      
+      ans :: 
+           both are used for wrapping our value into a optional object but 
+          
+           option.of() it will directly wrap our value such that if our vaue is null while fetching we may get nullpointer excption again,
+           
+           option.ofNullable() . it will check the vlue before wrapping if it is null then it will wrap as an empty.
+
+
+           while fetching .ispresent() will check whether that value is empty or not (becoz there is no chance of null) 
+ 
+
+
+
+(q) how can you make a arrraylist or hashmap as syncronized 
+     
+       ans ::  we can make array list or hasmap as syncronized by using syncronized collections 
+
+         eg :  Collections.synchronizedList(list);
+                Collections.synchronizedMap(map);
+
+        for hashmap we can also directly use concurrent hashmap 
+
+
+
+(q) what are the properties of a immutable class 
+
+        the very first property is making that class as final such no other class can inherit and overirde the methods.
+
+        make alll the fields as private such that we can't set the value without creting an object 
+        don't add setter methods to those fields and assign values to fields while creating an object for that class such that once objcet is created we can't edit those values .
+
+ 
+(q) what is the use of constructor 
+ans :: we can create an object of any class and so we can use all the methods in that class.
+
+
+
+(q) whys we call string as immuatbale  ::
+ ans :: becoz here we can read the string we cannot remove any character from it or we cannot add any extra character to it.
+ 
+ (q) diff between HashMap and concurrentHashMap :: 
+ 
+ ans :: 
+     HashMap are not thread Safety so if multiple threads try to access concurrently on same data this might lead to data inconsistent . 
+     concurrent hashmap are thread safe . it is specifically designed to handle concurrent access from multiple threads with out any external synchronization.
+      
+      concurrent hashmap  has internal locking meachanism which divides the data into small segments and apply lock only on which a particular segment on which  thread is trying to access or modify.
+
+
+      Hashmap Allow one Null key but Concurrent Hashmap doesnot allow any null key. 
+     
+  
+     
+ 
+ (q) if we do sysout like (1+2+3+"welcome"+5) what is o/p 
+ ans :: 6welcome5
+ 
+ (q) if we do sysout like (1+2+3+"welcome"+5+6) what is o/p 
+ ans :: 6welcome56
+ 
+ 
+ (q)  diff b/w string builder and spring buffer 
+ 
+ (q) what are checked exception and unchecked exception.
+ 
+ ans  :: checked exceptions are exceptions that are checked at compile time only , such that these exceptions either be handld with try catch block or have keyword throws on the method. 
+
+              examples :: sqlException (exception while doing db realted activities)
+                          ClassnotFoundException (trying to access any call)
+                          IoException (while doing input/output tasks like reading a file or writing a file)
+                          MethodNotFoundException (trying to call a method if it was not  present )
+                          FileNotFoundException  (occurs typically if u wants to access a file but path was incorrect or file not present there)
+                          InterruptedException (when a thread is interrupted like went to waiting state or sleeep state )
+
+ 
+         where unchecked are identified while run time, it is not mandatory to handle them , these exceptions generally occurs due to our code logic mistakes  all the sub callesses of runtime exceptions are unchecked exceptions only.(like arrayindex out of bounds exception ,Arithmetic exceotions,nullpointerException, number format exception, illegalstate exception (starting a thred twice ))
+ 
+(q) what are comparator and comparable.
+ 
+ 
+(q) what is singleton class
+
+ ans :: if only 1 object is created then it is a singleton.    
+ 
+ 
+  (q) what are anonymous classes 
+
+ (q) what is the use of lambda expressions.
+ 
+ ans :: 
+ 
+ 
+ 
+ (q) what is a copy constructor
+ 
+ 
+ 
+(q) diff b/w global ,local, instance variables ::
+   
+   global variables are accesssable across the program as they are decared as static in some constant files.  life time : until the project ends
+   instance variables are created inside a class but outisde any of the method . life time : as long as the object exists.
+   local variables are created inside any block or method. life time : until the end of the block
+  
+ 
+ 
+(q) diff b/w chmod and chown in linux
+ 
+     chmod changes the file permission (i.e who can execute , who can write , who can read) rwx
+     chown chnages the file ownership (belongs to which owner and to which group). 
+  
+
+(q) what is transcient keyword  
+
+       ans ::  it is access modifier given to a field , generally if we do serialization then this field will not get serialized (it is porcess of converting an object into a byte stream and write it into a file or tranfer it over network ). so at this process all those fileds marked with transcient will get skipped. (genrally of u don't want to serialize password it is used). 
+
+
+(Q) What is the purpose of the serialVersionUID in Java serialization?
+
+(q)What are the ways to create an object? 
+
+(Q) what are annymous classes 
+
+
+   (q) is there any situation where finall will not get executed ? 
+   
+        ans :: yeah if program exits with system.exit in try or cath block at that time finally will not get executed.
+
+   (q) whar is string pool ?
+   
+        ans :: it is a place in heap memory where string objects are stored ,so that if a new string object was created it will check whether that string object is already created or not if  not then only it will create a new object else it will points to sam reference .  
+
+
+
+(q) what are differnce between java 8 and 11 
+
+  ans :: upto java 8 we need to compile first our java file (javac command ) and then run our java file by run java class file where as in java 11 directly if we run java file it automatically compiles and run the code.
+
+          it introduced some string methods like 
+
+                    (1) isBlank() it checks whether a string is empty or not (if a string has only white space aslo it is treated is blank)
+                    (2) .lines() returns a stream of strings that are splitted a string in which if we have \n .
+                    (3) .repeat(int) this method takes count and returns a new string concatinating the orgiinal string count times. (hello.repeat(5)  --> hellohellohellohellohello).
+                    (4) .strpLeading() it will remove all the leading white spaces in a given string
+                    (5) .stripTrailing()  it will remove all the trailing white spaces in a given string.
+
+
+           it provided 2 new methods in file api
+
+                     (1) .readString(filepath, characterSet.UTF) returns a string
+                     (2) .writeString(filepath, content(String), characterset.UTF)
+
+           In collections we have a new method called .toArray() to convert a collection into an array.
+           
+           Standaradized httpclient was introduced to do httprequest calls
+
+           Var key word was introduced , basically it is as used as local varalible type. it helps us to declare variables without specifying their type.                    
+
+
+
+

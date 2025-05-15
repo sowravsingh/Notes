@@ -1,0 +1,282 @@
+Native Query ::
+
+
+
+These are plain SQL Queries .
+
+Mainly used to write complex queries like fetching any json columns and other queries like fetching count(*) this result cannot be    mapped to any entity.
+
+By using native query we can perform join between any 2 tables which are not mapped. 
+
+As here we are writing plain sql query and not dealing with JPA so here no involvement of Persistence context (like managing the life cycle of entity).
+We can perform bulk operations so that response will be too fast as no P.C involvement it reduces time while fetching.
+
+
+Disadvantages ::
+      
+                      If you change db from mysql to Postgres or any other the query needs to be changed accordingly which is a manual work.
+                      As there is no pc so there will be no caching.
+
+
+In native query everything    directly deals with db not with entity so we should write query in db perspective (i.e we should give column names in db not the field names in entity ). 
+
+
+So which one to choose either JPQL or native query it completely depends on your business requirement.
+
+
+Syntax :: 
+
+                        Same as JPQL only one extra parameter we should give . 
+
+                      Eg :: 
+
+                                @Query(value = "select * from farmer name =:farmerName", nativeQuery = true)
+       public List<FarmerDetails> getFarmerDetailsByNativeQuery(@Param("farmerName") String name);
+
+  Here we are selecting all the columns so JPA automatically maps the column names with entity fields and returns list of farmers.
+
+  But if we want to fetch only some certain columns in our tables then we have to manually take care of the mapping.
+
+        We can do mapping by 2 ways :: 
+
+
+          (1) using NamedNativeqeury and ResultSetMaping Annotation.
+
+                Same as named query we can write named native query also at entity level like :: 
+
+                  @NamedNativeQuery(name = "namedNativeQuery",query = "select name, phone from farmer where name =:farmerName",resultSetMapping = "nativeQueryResultSetMapping")
+    @SqlResultSetMapping(name = "nativeQueryResultSetMapping",
+        classes = @ConstructorResult(
+                targetClass = FarmerDto2.class,
+                columns = {
+                        @ColumnResult(name = "name",type = String.class),
+                        @ColumnResult(name = "phone",type = String.class)
+                }
+        )
+     )
+
+   
+    First write a named native query with a query and name and also result set mapping name 
+   
+    In result set mapping create constructor of the object (that we want to return) and map the columns from each row     
+
+    And in repository class in query just give this named query name so it will automatically execute.
+
+    @Query(name = "namedNativeQuery", nativeQuery = true)
+    public List<FarmerDto2> getFarmerDataByNativeQuery(@Param("farmerName") String name);
+
+
+   (2) Manual mapping the object list 
+
+        from query itself return list of objects and manually iterate through each object and map them to a dto object that you want to return 
+
+         Eg :: 
+
+         @Query(value = "select name, phone from farmer where name =:farmerName", nativeQuery = true)
+         public List<Object[]> getFarmerDataByNativeQuery2(@Param("farmerName") String name);
+
+
+         public List<FarmerDto2> getFarmerDTOByNativeQuery2(String name){
+            List<Object[]> result = farmerRepository.getFarmerDataByNativeQuery2(name);
+            return result.stream().map(objects -> new FarmerDto2((String) objects[0],(String) objects[1])).collect(Collectors.toList());
+
+        }
+
+
+    Dynamic Query ::
+
+ In native query we have an advantage of dynamic query like we can prepare the query based on inputs that user provided and directly execute that query no need of repository with help of entity manager we can execute this dynamic query.
+
+
+
+   Steps :: first create a string builder fixed query  and then based on null checks add where cluase to the query by appending to stringbuilder.
+             Meanwhile add all the input columns  provided by farmer into list and convert the string builder to query with entity manager create query method.
+             Now set all the parameters to query in same order how where clause were given.
+             Invoke .getresult to get the output in result list of objects.
+             Iterate through list and convert those objects into DTO’s
+
+           
+             Eg::
+    
+                StringBuilder sb = new StringBuilder("select * from farmer where 1=1");
+                List<Object> parameterList = new ArrayList<>();
+
+                if (name != null){
+                    sb.append(" and name = ? ");
+                    parameterList.add(name);
+                 }
+
+                Query query= entityManage.createNativeQuery(sb.toString());
+
+                 int count=1;
+                 for (Object obj : parameterList){
+                      query.setParameter(count,obj);
+                      count++;
+                  }
+
+                  List<Object[]> resultList = query.getResultList();
+
+              return resultList.stream().map(objects -> new FarmerDto2(String.valueOf(objects[0]),String.valueOf(objects[1]))).collect(Collectors.toList());
+
+
+
+Pagination and sorting in Native Query :: 
+
+   (1) in Dynamic Query 
+
+         Same as how we prepare query we just append order by name desc limit and offset to query and set limit value and offset value by parameters.
+ 
+         Eg :: 
+       
+             sb.append(" order by name ");
+             sb.append(" limit ? offset ?");
+             parameterList.add(1);
+             parameterList.add(0);
+ 
+          And the rest remains same it will execute the query with the above parameters.
+
+
+
+   (2) in Normal Native Query ::
+  
+         It is same as JPQL create object of pageable with required parameters and we can include sorting in same object itself and pass this pageable object to repository same as jpql no need to mention in query it automatically  applies sorting and pagination.
+
+
+
+
+
+                              
+                               Criteria API 
+
+In JPA also we can write Dynamic query instead of Native Sql query because we know if we use JPA then entity are managed by jpa and also if we use native query it is db dependent so if we move from one to to another db then we need to update this query as well according to db.
+
+There we need criteria builder from there we need criteria query to build query and also predicates used for where clause.
+
+Steps and syntax to build native query :: 
+    
+      (1) create criteria builder from entity manager 
+   
+              CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+
+      (2) create criteria query with cb :: 
+        
+              CriteriaQuery<FarmerDetails> criteriaQuery = cb.createQuery(FarmerDetails.class);
+
+              Here we are mentioning what is the type of each row that will be returned after executing query so as we want all columns from farmer details table .
+
+             If you don’t want all the columns to be returned only few columns then create criteria Query with object array.
+
+             Eg ::  CriteriaQuery<Object[]> criteriaQuery = cb.createQuery(Object[].class);
+
+
+
+      (3) mention the tables from where you want to query (i.e mentioning from table) ::
+
+             Root<FarmerDetails> farmerDetailsRoot= criteriaQuery.from(FarmerDetails.class);
+
+            Here we mention only one table we are queuing from only one table and the main table will be called as root table.’
+
+             If we want to perform join our root table to another table then we can do like :
+                     
+                        Join<FarmerDetails,FieldDetails> fieldDetailsJoin= farmerDetailsRoot.join("fieldDetailsList",JoinType.INNER);
+                  Here we should give the column which is acting like a  foreign key .
+
+
+
+      (4)  mention what are the columns need to select :: 
+ 
+            criteriaQuery.select(farmerDetailsRoot);
+            
+             Here we are selecting all the columns from farmer details table.
+       
+             instead of selecting all columns from a table we can select only particular column from one table and another column from another tables also by ::
+            
+                            criteriaQuery.multiselect(farmerDetailsRoot.get("name"),fieldDetailsJoin.get("fieldName"));
+
+ 
+
+
+
+  
+
+       (5). preparing where conditions dynamically based on user input so here  we need to create predicate with the help of criteria builder and we can can give that predicate to criteria query for where .
+ 
+            Predicate predicate = cb.equal(farmerDetailsRoot.get("name"),name);
+            criteriaQuery.where(predicate);
+
+            If we have multiple predicates in single where condition like  where phone number equals 8888 or name equals sowrav  here in this scenario we will create multiple predicates and club all of them into single predicate and give that final predicate to criteria query .
+       
+             Predicate predicate1 =  cb.equal(farmerDetailsRoot.get("name"),name);
+             Predicate predicate2 =  cb.equal(farmerDetailsRoot.get("phone"),"w4343");
+             Predicate finalPredicate =  cb.and(predicate1,predicate2);
+             criteriaQuery.where(finalPredicate);
+
+ 
+            
+           Here we are having where clause as  name  equals to user given name. Like that we can create as many predicates as we want i.e we can add as many where clauses  cb has all the methods (i.e  equal , like, in , less than etc…).
+
+
+        (6). Now with all the details prepare the query and  execute it to get the result list .
+
+             TypedQuery<FarmerDetails> query= entityManager.createQuery(criteriaQuery);
+             List<FarmerDetails> resultList = query.getResultList();
+
+     Here we know we will get multiple rows so we called result list if your query returns only single row then we can use get single result method. 
+            
+             If we select multiple	columns not full table then we get typed query as object array and result list also will be list of object arrays . From the object array we can get our columns any iterating each row (each object in list).
+
+               TypedQuery<Object[]> query= entityManager.createQuery(criteriaQuery);
+               List<Object[]> resultList = query.getResultList();
+
+
+
+ 
+
+  For sorting we can use inbuilt method like order by in criteria query .
+      
+        criteriaQuery.orderBy(cb.desc(farmerDetailsRoot.get("name")));
+
+ 
+For pagination once we got typed query we can fetch how many rows we want .
+ 
+         TypedQuery<FarmerDetails> query= entityManager.createQuery(criteriaQuery);
+
+        query.setFirstResult(0);
+        query.setMaxResults(10);
+
+   First result tells us offset and max result tells us limit.
+
+
+ 
+ 
+   Specification API
+   
+   As we are creating predicates there will be  so much code repeating we can write all the predicates of a entity with accepting parameters so that that class will return predicates and we can use those predicates.
+   
+
+
+
+
+
+
+
+
+
+
+
+
+
+               
+
+
+  
+
+
+
+
+
+
+
+
+
+

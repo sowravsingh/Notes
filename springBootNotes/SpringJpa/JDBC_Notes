@@ -1,0 +1,149 @@
+                                      JDBC (Java Database Connectivity)
+
+It is a Interface. which helps us to :: 
+                                       
+                      (1) Make Connection With DB
+                      (2) Query DB
+                      (3) Process the Result
+                                       
+Actual Implementation will be provided by the DB drivers we are using (For each DB we have their specific driver class)
+
+Using JDBC Without SpringBoot
+
+steps Included 
+
+  (1) load the Driver class (respective of the db u use ).
+  (2) Create a new db connection (by giving jdc url, user name, password)
+  (3) Execute your query
+  (4) process the result
+  (5) close the connection and other resources like prepared statement etc.
+  
+  
+  
+  Disadvantages of the above  :: 
+  
+  
+   (1) There are so much boiler code that we are doing like loading driver class and creating connection everytime while doing a query and also after compleiting we have to manually close the connection and other resources.
+  
+   (2)  If any Exception thrown  here it will throw directly main class Exception . not particular actual exception it got.
+  
+   (3) if u want to maintain  DB connection pool (so that each connection can be re used). we have to handle it manually. 
+  
+  
+  
+  
+ Using JDBC With SpringBoot 
+ 
+ Add dependency of jdbc starter and database dependency in pom.xml
+ 
+ 
+ We use here JDBC Tenplate class to ressolve all the above disadvantages.
+ 
+ Steps :: 
+  
+  (1) Provide the driver class, jdbc url (for connection) , username and password in app.prop file 
+  
+  (2) Autowire JDBCTemplate class in your repository 
+  
+  (3) use methods provided by jdbctemplate class for you db activities like create ,insert , update 
+ 
+ 
+ 
+ we Require datasource object to connect to db.
+ 
+JDBC use by defualt hikari datasource as a datasource object. 
+  
+  
+So here we we have not loaded driver class or creating db connection manually evrry time and not manually closing the connection 
+
+
+While Application Startup  itself jdbc loads dirver class  that we provided in app.prop file.
+
+Jdbc Automatically takes care of creating db connection while u are executing any query and also automaticaly close connection and resources we have used.
+
+In plain jdbc we will get abstracted SQL exception  but here we will get exact exceptionwe got .
+
+jdbc use hikari database connection pool (hikaricp) for database connection pool so that to reuse db connections and not to create a new  by default it has min and max connections of 10 and we can overide it in appp.prop file. 
+
+
+If we don't want to use hikari datasource object we can create other datasource object also and give driver class and db details to it by creating bean for datasource in configuration class.
+          
+          eg :: 
+                  @Bean
+                 public DataSource getDataSource(){
+                        HikariDataSource dataSource = new HikariDataSource();
+                        dataSource.setDriverClassName("org.h2.Driver");
+                        dataSource.setJdbcUrl("jdbc:h2:mem:studentDB");
+                        dataSource.setUsername("sa");
+                        return dataSource;
+                 } 
+
+
+
+
+some frequently used method in JDBC Tenplate methods like :: 
+
+(1) .execute(query) used for create , insert update , delete without any paramaeters
+
+       eg :: 
+         
+            String query ="CREATE TABLE student(id int AUTO_INCREMENT PRIMARY KEY , name VARCHAR(255))";
+            jdbcTemplate.execute(query);
+
+(2) .update(query, arguments) used for insert , update , delete 
+
+        dynamically pass no.of arguments we required 
+        
+        eg ::
+        
+            String query = "insert into student (name) values(?)";
+            int update = jdbcTemplate.update(query, "sowrav");
+            
+            
+(3) .update(query, preparedstatementsetter object )
+         
+         instead of passing the paramaters as arguments  in above we can set them as prepared statement
+         
+          String query= "insert into student (name) values(?)";
+          int update = jdbcTemplate.update(query, (PreparedStatement ps) -> {
+                         ps.setString(1, "sowrav");
+                      });            
+
+
+(4)   .query(query , RowMapper<T> object)
+
+        used to fetch list of rows without any parameter
+        
+        String sql ="select * from student";
+        List<Student> studentList=   jdbcTemplate.query(sql,(rs, rowNum) -> {
+                                                                Student student = new Student();
+                                                                student.setId(rs.getInt("id"));
+                                                                student.setName(rs.getString("name"));
+                                                                return student;
+
+                                                              });
+                                                              
+         Rowmappper is used to tell the jdbc template how to process each row.
+         
+         
+    
+(5)  .queryForAObject(query , arguments as array , class)
+
+        used to get a single row and to map that row to a clas
+        
+        eg :: 
+        
+            String query = "select * from student where name =? limit 1";
+            Student student = jdbcTemplate.queryForObject(query, new Object[]{name}, Student.class);
+
+    
+    
+    
+    
+    
+    
+         
+
+
+   
+                                            

@@ -1,0 +1,225 @@
+                                                                                            Different Authentication methods 
+
+
+
+We have different authentication methods to authenticate a user . Among them 
+
+
+(1) Form Based Authentication    method ::
+ 
+                  This is a stateful authentication method (i.e server maintains state of authenticated user). 
+                  User need not to provide username and password every time for every request. It will pass only session.
+
+
+          Basic Flow will be like :: 
+
+                * User provides login credentials (username and password) in html login page.
+                *Server authenticates user with login credentials after succesful authentication    it will creates a session for that user .
+              * now for any subsequent request client will pass only this session ID and server validates this session id with internally stored    session id .
+
+
+      Form Based Authentication    is default authentication method in spring security.
+
+      It has default apis for both login and logout (/login, /logout).
+
+
+        HTTP Session :: 
+              
+                    * Once user enters credentials and called login api . Server authenticates the credentials and Cretes a HTTP Session Object (containing parameters like session Id, expires time , session details etc..
+                    * This session was stored internally and in response server will set cookie like session id and send this session id .
+                    * From next time when client makes any request it will pass this session id and server gets the session details with this id.
+                    * if session was found and it is valid (not expired)    it fulfills the request if not it will redirects to login page. 
+
+
+
+    By default time to live for http session is 30 minutes and we can configure it too.. 
+    By default session details are stored in memory but it might get problem in microservice architecture      because    session details will be stored in one server and if client make any request to another server then it may get session not found . So we can configure to store session data in db itself .
+
+
+          To configure session ttl manually add this in app.prop file 
+    
+                              server.servlet.session.timeout =1m
+  
+  So we are setting after 1 minute of inactivity (I.e user haven’t send any request in 1 minute then session will be get expired).on every http request session expiry will be increased to next 1 minute.
+
+    To store the session in db we need to add dependency in pom.xml
+ 
+           <dependency>
+	           <groupId>org.springframework.session</groupId>
+	           <artifactId>spring-session-jdbc</artifactId>
+           </dependency>
+    
+
+    In app.prop file set this configuration ::
+
+            spring.session.store-type=jdbc
+            spring.session.jdbc.initialize-schema=always
+
+  
+  So from now springboot creates a table with spring session name and stores all the session details in that table.
+
+   
+   In Depth flow of form based authentication method :: 
+ 
+    Case - 1 user is authencting first time (hitting /login api)
+
+        * once user enters username and password and hit login api it goes through security filter chain and there it goes to usernamePassowrdAuthenticationFilter.s
+        * this filter will create authentication object with user name , password fields and also isAuthenticated field (as of now it’s value is false). And passes this object to Authentication Manager , so from here based on authentication method we are using it will send to respective authentication provider , here in our case (form -based authentication) it passes this object to DAOAuthenticationProvider.
+        * here It will authenticate user by fetching userdetails from db or in memory and also encodes the user entered password by help of password encoder . After validating the credentials it will pass the same authentic	ation object back to usernamePassowrdAuthenticationFilter but isAuthenticated value as true.
+        * from here it goes to next filter SecurityContextHolderFilter , here it will create Scurity context object and place the authentication object inside it and pass this security context object to HttpSessionSecurityContextRepository there it will create http session object and places this security context object inside it . 
+        * Now this http session will have all the details including session id , session details , user details . And this object will be stored in db (spring session table) or in memory .
+
+
+    If u directly hit /login api after successfully authentication from fliers it will go to servlets and from there to interceptors (if any present) and from there to default routing of “/n”. Or else if you hit any business api without login then first it will show login form to enter credentials  and after successfully login it goes routes to that business api. 
+
+
+
+    Case -2 user is already authenticated now sending any subsequent request.
+
+           * once user hit any request it comes to SecurityContextHolderFilter and from there it passes the request to HttpSessionSecurityContextRepository . There it will try to fetch session details from in memory or db with the session id that we got from cookies of the request.
+          * if http session was not found it will redirects the user to login page or else it gives securityContext from HttpSession to SecurityContextHolderFilter.
+          * this filter will store the security context in securitycontextholder and maintain  it through out the life cycle of request .
+          * from these filter it will goes next to authorization filter where it will check whether the user has permission to make this request from there to interceptors  and controller.
+
+    We can change the default login page by creating our custom security filter chain object .
+
+
+
+   Authorization filter :: 
+
+   Once user was authenticated. If user was making any request it goes through authorization filter.
+    By default springboot does not places any restriction on any request. We have to manually do it .
+ 
+   Authorization can  be done in 2 phases.
+
+    (1) at security filter chain (at filter level).
+    (2) before controller (after interceptor).
+
+
+     Before controller authorization filter is almost same for all authentication methods.
+
+     At security filter chain level will varies for every authentication method.
+
+      Here also we need to mention to which apis we need authorization or else spring boot allows all the authenticated users to access every api. this needs to be mentioned in custom security filter chain object itself.
+
+         Eg :: 
+     
+                 .requestMatchers(new AntPathRequestMatcher("/api/getUserById")).hasRole(“ADMIN”)
+
+         Here we are telling who ever wants to access /api/getUserById that user must be Admin role only. We can mention multiple roles also by changing hasAnyRole(“admin”,”farmer”) .
+
+    
+
+
+Session limit control ::
+
+    For example user1 is login through browser1 and again at same time same user1 is trying to login through browser2 . we can have control over it also like mentioning how many sessions we can allow at a time for a user in security filter chain itself .
+
+          Eg :: .sessionManagement(session -> session.maximumSessions(1).maxSessionsPreventsLogin(true))
+
+
+Session creation policy :: 
+
+   We have 4 session creation policy values basically we use this to tell springboot to when to create a session . Because there will be some public apis where we don’t	have authentication there we don’t need to maintain session also . 
+
+    (1) If_Required :: this was the default value set by springboot . Session will only be created when we needed.
+    (2) Always ::  session will always be created and if already created it will reuses it. So at time of public apis also it will create http session.
+    (3) Never :: session will never be created and uses if already present.
+    (4) State less:: no session will be created. This will be used in time of stateless applications like while using  jwt.
+
+
+    Eg ::  
+
+           .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+
+
+
+
+Disadvantages of Form Login Authentication method:: 
+
+  * As we already discussed there is vulnerability for session based authentication CSRF where session id can be hijacked and used by hacker to send unwanted request . So to avoid this we are using csrf token so we should not disable csrf in security filter chain config.
+
+  * DB Load :: as we can’t store session in memory because it might cause issue in distributed systems so we need to store session in db and hence db was involved which might cause some latency issue while fetching	session details.
+
+
+
+
+
+
+ (2) Basic Authentication Method. :: 
+
+     It is a stateless Authentication method (i.e user authentication state is not maintained over server like maintaining session details in form login authentication method).
+     Here client have to pass username and password for every request in authorization headers.
+     These credentials also will be passed as base64 encoded form (not encrypted) , so not much secure in http. 
+
+
+
+     User creation is as same as creating user in form based authenication method , we can Create user either directly giving in app.prop file ore can create dynamically and  store them in db same as form based method.
+
+     After creating user in every request we need to send username and password in encoded form.
+ 
+      Via postman if we are hitting any api we can go to authorization and select there basic auth and give user name and password it automatically encodes them in base64 and pass them via request .  Spring will decode this header to get plain username and password.
+
+
+     Why we need to send username and password  only in headers not in request body.
+
+
+       (A) standard ::  As per http standardization this format was accepted in order to universally accept standard accross api and client .
+       (B) security ::  some web servers might log request body for debugging and anlytics so at that time username and password might get exposed .
+       (c) support for all HTTP Methods. :: GET methods  does not allow request body so at that time we can’t send user name and password for get request calls.
+
+
+   In Depth flow of Basic authentication method :: 
+  
+      Mostly similar to form based 
+
+      * When we make a http call along with credentials in encoded form first request comes to scurity filter chain there it goes to Basic authentication filter .
+      * In basic authentication filter it decodes the user name and password and create object of Authentication  and pass it to Authentication manager form there it goes to DaoAuthentication provider.
+       * in this provider first it will call password encoder and hash the incoming password and matches it with db password of that user once password  was matched it will update rest things in authentication object like roles and isAuthenticaed to true and pass back this object to basic authentication filter.
+       * after successfull authentication this authentication object will be stored in security context and this security context will be saved in security context holder so that this security context will be maintained through that entire http request  life cycle.
+
+     After this request	 go through authorization filter there also same as form based like it will check authorization of that user by role of that user and config we set in our custom security filter chain. 
+
+    
+
+
+     Code set up :: 
+  
+      Same as form -based for  user creation . Dependencies also same as form-based only change in security filter chain 
+
+
+     Eg. :: 
+
+               @Bean
+               public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+                      http.authorizeHttpRequests(auth -> auth
+                                  .requestMatchers(new AntPathRequestMatcher("/api/registerUser")).permitAll()
+                                  .requestMatchers(new AntPathRequestMatcher("/api/getUserById")).hasRole("USER")
+                                   .anyRequest().authenticated()
+                                  )
+                           .sessionManagement(session -> session.maximumSessions(1)
+                           .maxSessionsPreventsLogin(true))
+                           .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                           .csrf(csrf -> csrf.disable())
+                           .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
+                           .httpBasic(Customizer.withDefaults());
+                return http.build();
+          }
+
+
+     In session creation policy we need to set it as stateless so that no session will be created as it was not required for basic authentication.
+     Also we need to set .httpBasic(Customizer.withDefaults());  this tells springboot to use basic authentication method for authenticating a user.
+
+
+   Disadvantages of Basic Authentication method :: 
+
+     (1) credentials need to be sent in every request so if we are not using https and using http then they might get exposed.
+     (2) not suitable for large applications because in every request we need to authenticate user . And also every time we need to connect to db to fetch user details.
+
+
+
+   
+  
+
+
+   

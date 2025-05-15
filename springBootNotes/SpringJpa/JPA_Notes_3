@@ -1,0 +1,504 @@
+                                 Association types or Mappings (b/w tables)
+
+
+(1) one to one mapping 
+           that is one entity (A) references only one instance of another entity (B).
+
+
+     Uni directionl ::  This References only exists in one directional i.e from A to B .
+
+     for example there are 2 tables userDetails and userAddress 
+
+     userDetails refernces userAddress.
+
+     so here in user details there will be one column which acts as foreign key and refernces to a column in address table  
+
+     generally the primary key in address table will be replicated in user details.
+  
+     
+     columns of user details table will be ::
+     
+                ID     NAME    PHONE_NUM   USER_ADDRESS_ID  
+
+      columns of user address table will be ::
+
+                ID      CITY    STATE 
+
+      
+      here USER_ADDRESS_ID in user details refers to id in user address table.
+
+
+      how to map one to one ? eg :: 
+
+                 @Entity
+                 public class UserDetails {
+
+                    @Id
+                    @GeneratedValue(strategy = GenerationType.IDENTITY)
+                    private Long id;
+    
+                    private String name;
+                    private String phoneNum;
+
+                    @OneToOne(cascade = CascadeType.ALL)
+                    private UserAddress userAddress;
+                
+                }
+
+        so while  if we perform insert query on user details table, we should  give user address pojo also but address details will be inerted  in address table and maintain refernce in user detials with    USER_ADDRESS_ID column.
+
+        we can perform separate insert queries on user address table also. and those rows  are not referenced to user details table.
+
+        by default hibernate chooses primary key in address table as foreign key in userdetails table so that that row will be mapped here to user detials table.
+
+        we can modify and tell hibernate to consider any other column also as a foriegn key in user details table (it need not to be primary key in address column).
+
+        by default the column name that was created in user details (that was refernced to user address) will be tablename_id we can change that column name also by . 
+
+
+            @OneToOne(cascade = CascadeType.ALL)
+            @JoinColumn(name = "address_city", referencedColumnName = "city")
+            private UserAddress userAddress;
+
+
+        so here we explicitly saying to take city  column (even though city is not a primary key) in address table as foreign key here and also that foreign key column name should be address_city.
+
+
+
+
+        As we know hibernate by default considers primary key column as a foreign key column in parent table , but it works only when we have normal primary key . but in case of composite primary key (i.e primary key is combination of 2 or more columns) we have to mention all those columns explicitly in our parent table like ::      
+    
+
+                     @OneToOne(cascade = CascadeType.ALL)
+                     @JoinColumns({
+                           @JoinColumn(name = "address_city", referencedColumnName = "city"),
+                           @JoinColumn(name = "address_id", referencedColumnName = "id")
+                     })
+                     private UserAddress userAddress;
+
+
+           in address table city , id are composite primay key and here we mentioned both columns  so that now 2 columns were created in user detials tables (address_city,address_id)  which acts as foreign key and refers to city and id columns in address table.        
+
+
+           note :: we have to mention all the columns in composite primary key here or else it will throw exception while application start up.
+
+
+
+
+
+ CASCADE TYPE ::
+
+         while mentioning one to one mapping with 2 entities we are giving cascade type.
+
+        basically cascade will tells how to behave i.e any opertaion on parent entity how to effect on child entity.
+
+        i.e without cascade type if any operation was done on parent entity it will not show any effect on child entity (if we delete parent entity it's child entity row will not get deleted also if we want to update a row it will only upate parent entity row columns not child entity columns and many more.)
+
+
+
+        Cascade type have 6 different values .
+
+        All,Persist,Merge,Remove,Refresh,Detach   
+
+
+
+      (1) Persist :: if we insert any row in parent entity then automaticallly it will insert it's associated row in child entity also.
+
+                     As we call UserDetailsRepo.persist(userDetials). but it automatically call userAddressRepo.perisit also to insert it's child entity.
+
+
+       (2) Merge :: if any update happens in parent entity and if any update required in child entity also then update will hapen in child entity row. 
+           
+                   if we mention cascade type as prsist then this will not happen, so we need to give both of them as values comma(,) separated  to cascade type.
+
+                   eg :: 
+
+                         @OneToOne(cascade = {CascadeType.PERSIST,CascadeType.MERGE})
+                         private UserAddress userAddress;
+
+
+       (3) Remove :: if we are deleting parent entity row then automatically it's associated child entity row will also get deleted.
+       
+
+
+        (4) Refresh ::  some times we might invoke refresh method in entity manager so that it will bypass of storing the data into persistance context so that everything will be dealed directly to db , so while fetching data we need to get from db only . so at that time we tell jpa while fetching any data from parent entity automatically fetch it's associated data in child entity also.                 
+
+
+        (5) Detatch :: some times we might detatch our entity from persistance context (i.e lfecycle of entity was not managed by p.c so now we are telling we have to detach it's associated entity also from persistance context).
+
+
+        (6) ALL :: if we want all these cascade type as values instead of giving them in a array as comma separated we can give directly value as ALL .
+
+
+
+  Till now all the cascade types tells us how to behave with child entity while inserting, updating and deleting but we haven't mentioned how to behave while fetching the data .
+  
+
+     there are 2 types of loading eagerly loading , lazy loading .
+
+
+
+     (1) Eargerly loading whenever we are trying to fetch data for parent entity we will fetch automatically it's associated child entity data.
+
+     (2) Lazy loading is like we will fetch data for only parent entity but we will not  fetch it's child entity data and it will be fetched only at the time we try to get data from parent entity like userdetils.getUserAddress(). so at this time it will do a separate db call to fetch the child entity data.
+
+
+
+     for onetoone and manytoone mapping eagerlyloading property is default 
+
+     for manytomany and onetomany lazy loading property is default.
+
+     becoz for onetoone and manytoone it is clear that it has only one child entity associated to one parent entity so db can directly fetch it's child entity where as manytomany or onetomany we have for each parent entity there might be  many child entities, so db can't know to pick which child entity for this.  
+
+
+     we can bipass or change them also by setting value manually to fetch type ::
+
+                          @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+                          private UserAddress userAddress; 
+
+
+       but this will give error because now child entity data was not automatically fetched so while serializing the data into json at controller level to give as a response there we will get error while serializing the field userAddress . becoz it will be null.
+       
+       to ressolve this error we have 2 process 
+
+
+       (1) use @JsonIgnore to that field so that that child entity field will not get serialized into json while giving response so there will be no null pointer exception.
+
+       but this is not recommended becoz as we set it  manually we have to remove it also manually if we don't want to stop serializing it.
+
+       (2) best way is don't send directly that entity object to response ,instead send a DTO of that entity so that we will be sending only necessary detials to client , as we are sending all the columns with their names it may be risk at any time .
+
+          so while converting   entity into dto there we can have a null check by accessing child entity field like userdetils.getUserAddress() , so we know in lazy loading while accessing child entity data it will then make a db call to fetch data so that we will avoid null pointer exceptions here.
+
+              eg ::
+                      public UserDetailsDTO(UserDetails userDetails) {
+                            this.id = userDetails.getId();
+                            this.name = userDetails.getName();
+                            this.phoneNo = userDetails.getPhoneNum();
+                            this.city = userDetails.getUserAddress() !=null ? userDetails.getUserAddress().getState():null;
+                      }
+
+
+
+
+One to One (Bi directional)
+
+     Till now in one to one mapping parent entity holds reference of child entity (by foreign key which will be a primary key child entity). which is uni directional .
+     now while quering child entity data we can get it's parent entity data also (but not by any foreign key reference ), holds the object reference of parent entity , no extra column will be created in child entity data it is completely in object perspective not in db. 
+
+     to achieve this bi directional no changes required in parent entity where as in child entity we need extra field (which will not be created as column in table). which holds refernce to parent entity like :: 
+
+
+
+
+        we need to add extra column in child entity (user asddress)
+
+
+         @OneToOne(mappedBy = "userAddress",fetch = FetchType.EAGER)
+         private UserDetails userDetails;                                               
+
+
+
+    But if we try to fetch data of user details or user address it will give infinite recursion exception becoz while jackson start serializing the data if we fetch address details in there we have a field of user details so it will fetch user detials again inside it we have user address detials so it is a never ending recurssion .
+
+    same happens in vise versa situation also i.e if we directly try to fetch user details inside it jackson try to serialize user address and while serializing user address it finds user details field and so on....
+
+
+    we can solve it by 2 approaches 
+
+    (1) using   2 annotations (@JsonManagedReference and @JsonBackReference)
+
+
+         place  @JsonManagedReference annotation in parent entity (i.e on top of foriegn key column) and place @JsonBackReference in child entity (i.e on top of parent entity reference field).
+
+         eg ::
+
+                  in parent entity (user details) ::
+
+                            @OneToOne(cascade = CascadeType.ALL)
+                            @JsonManagedReference
+                            private UserAddress userAddress;
+
+
+                  in child entity (user address) ::
+
+
+                             @OneToOne(mappedBy = "userAddress",fetch = FetchType.EAGER)
+                             @JsonBackReference
+                             private UserDetails userDetails;
+
+         so we are telling while serializing parent entity  serialize it's child entity also where as while serializing child entity it will not serialize it's parent entity .
+
+
+         this will be helpful when we try to fetch parent  entity data along with its associated child entity data. 
+
+         but still we can't get parent entity data while fetching child entity data.  
+
+
+    (2)  using @JsonIdentyInfo 
+
+                we will provide @jsonidentifier on entity level and give any column(it can be primary key column or any other column but it should be unique.) in our entity as value for property  
+
+                eg :: 
+
+
+                      @Table(name = "user_details")
+                      @Entity
+                      @JsonIdentityInfo(property = "id",generator = ObjectIdGenerators.PropertyGenerator.class)
+                      public class UserDetails {
+                      
+                      }
+
+
+
+     
+                so that while jackson serializing gives unique id to this entity based on the property we gave and next time if it serializing the sane entity if it founds it is already serialized it won't do serializing next time.
+
+                we can place this annotation to both entities and give property value according to the columns in it. so in this manner we can get data in bidirectionally.
+
+
+
+
+
+
+   one to many  (Uni Directional) ::
+   
+       one row in parent entity is associated with multiple rows in child entity (i.e one parent has multiple child).
+
+       unidirectional :: i.e reference exists in only one direction i.e from parent to child..
+
+
+       as one parent have multiple children we can't store all the children id's as list in parent table row . so, by default jpa creates a new table in which we will have  for every child entity id and it's associated parent entity id.          
+
+
+       so here no extra column in parent entity (which acts as foreign key that refers to child entity ) all these reference maintained in separate entity .
+
+       eg :: 
+
+
+        @Entity
+        public class ClassRoomDetails {
+
+              @Id
+              @GeneratedValue(strategy = GenerationType.IDENTITY)
+              private Long id;
+
+
+              private String className;
+
+
+              @OneToMany(cascade = CascadeType.ALL)
+              private List<Student> studentList;
+        }
+
+
+        here parent entity (classroom details ) will don't have extra column to refer child entity (student) as it is difficult to maintain all the child entities id  as a list in a single column  .
+
+        so table structures will  be 
+
+
+
+         classroom details :: 
+
+                 ID      CLASS_NAME  
+                  
+
+          student details ::
+          
+                ID      STUDENT_NAME 
+
+
+
+          as we know it will create a separate table to maintain relation b/t parent and child , that table structure will be 
+
+          CLASS_ROOM_DETAILS_STUDENT_LIST ::
+
+              CLASS_ROOM_DETAILS_ID   STUDENT_LIST_ID  
+
+          so here same parent id will be there for many columns and child id will be unique.
+
+
+    Till now for  maintaining relation we mainatained that relation in a separate table (this is by default behaviour of hibernate), but there is a another way of storing that relation i.e in child entity if we had a extra column of parent id so that we for each child we have only one parent .
+        
+
+        to achieve this we need to use @JoinColumn annotation . and need to mention which column it should refer in parent entity .
+
+        eg :: 
+
+             @Entity
+             public class ClassRoomDetails {
+
+                 @Id
+                 @GeneratedValue(strategy = GenerationType.IDENTITY)
+                 private Long id;
+
+
+                 private String className;
+
+
+                 @OneToMany(cascade = CascadeType.ALL)
+                 @JoinColumn(name = "class_id",referencedColumnName = "id")
+                 private List<Student> studentList;
+         }
+
+
+         * in ontoone mapping if we mention same over child entity and give referneced column as child entity column and it used to create extra column in parent entity here it is vise versa extra column will be created in child entity and we need to give which parent entity column this new column should refer.
+
+         so now parent child relation is not maintained in a separate table it will be maintained in child entity with extra column.
+
+
+         if u insert any row as separately i.e not to associated to any parent then for those rows parent_id column value will be null.
+
+
+
+         while fethcing data :: as we know onetomany is lazy loading so while fetching parent entity data automatically it's associated child data were not fetched it will be fethed while jackson doing serializing (as to convert the return type to json) .so at that time it will do again a separate db call to fetch it's associated child entity data .
+
+
+         if u want it to change as eager fetch i.e while fetching parent entity data only we can fetch it's child entity data then we can modify by ::
+
+
+          @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+          @JoinColumn(name = "class_id",referencedColumnName = "id")
+          private List<Student> studentList;
+
+
+        give fetch value as eager type.
+
+
+
+
+
+
+   Orphan Removal ::
+
+        there might be a scenario like first we insert a parent entity with 2 child entites for it and later we have updated like parent entity has only one child entity then the other child entity will be remain as orphan.
+        i.e that child entity row will not get deleted but it will still remain in db and not associated to any parent entity such that it's parent_id column value will be null.
+
+        so this scenario will be default one . but if we want to change this scenario like if we remove a child enity's association with parent then that row in child entity should be removed from db itself so that orphan will be reomved from db .
+
+        we can set property orphanRemoval to true in onetomany annotation mapping.
+
+         
+        eg :: 
+
+         
+           @OneToMany(cascade = CascadeType.ALL,orphanRemoval = true)
+           @JoinColumn(name = "class_id",referencedColumnName = "id")
+           private List<Student> studentList;
+
+
+
+ one to many (Bi Directional) :: 
+ 
+   as we have parent and child relation we have another relation like inverse and owning side basically where we have extra column (foreign key reference ) that side is owning side and other side is inverse side .
+
+
+   as here in one to many relation foreign key is present in child entity so owning side is child entity .
+
+   In Bi directional @joinColumn should be in owning side only i.e till now (in unidirectional case ) we placed @joincolumn in parent entity now we have to place in child entity side.
+
+   in bi directional as we know in child entity we have to add parent entity field also , so to that field we have to add @JoinColumn.
+
+   eg ::
+
+     in child entity            
+
+
+              @ManyToOne
+              @JoinColumn(referencedColumnName = "id")
+              private ClassRoomDetails classRoomDetails;
+
+              give parent entity column name there , as from child side it is many to one so we annotated that column with @ManyToOne Relation.
+
+
+      in parent entity 
+      
+
+                 @OneToMany(mappedBy = "classRoomDetails",cascade = CascadeType.ALL)
+                 private List<Student> studentList; 
+
+
+                 as from parent side it is one to many relation ship so we annotated with one to many mappping and gave parent entity referenced column name of child entity here for mapped by value.
+
+
+                 and also while setting child entity details we have to set manullay it's associated parent entity details as now parent entity has become inverse side it will not manage those task.
+
+                 eg ::
+
+
+                      public void setStudentList(List<Student> studentList) {
+                         this.studentList = studentList;
+                         for (Student student :studentList){
+                                student.setClassRoomDetails(this);
+                        }
+                     }       
+       
+
+
+ Many to One :: 
+
+
+
+ 
+     for  bidrectional we can take one to many bidirectional case only here now student became parent entity  and class room as child entity .
+
+     till now we are calling one class has multiple students which is one to many mapping now if we say multple student belongs to one class.
+
+     configuration remains same i.e foreign key is at student side and also other thngs remain same only pronouncation we should say from student side .
+
+
+     for uni directional case  we can maintain  student  entity configuration as same but at class room entity side we should remove that oen to many mapping config as it is uni directional from class room we should not fetch student detials.
+
+
+
+ Many to Many ::
+          
+        Unidirectional (reference from one way)  
+
+        here there is no parent child,
+        any one can act as parent and it's corresponding will act as child, similarly any one can act as owing side and other can act as inverse side. because here foreign key is not stored in either table the mapping b/w parent and child will be present in separate entity       
+
+
+        lets assume a relation of doctor and patient here same doctor will have multiple patients and one patient  will have multiple doctor's appointment.
+
+        so currently we assume doctor as parent and patient as child in our unidirectional case (i.e from doctor details we can get patient details also. )
+
+        as it is a unidirectional there will be no much config needed in child side just create a child entity with required columns.
+
+
+        in parent side ::
+
+
+        for patient details column : 
+
+             @ManyToMany(cascade = CascadeType.ALL)
+             @JoinTable(name = "doctor_patient", joinColumns = @JoinColumn(name  ="doctor_id"), inverseJoinColumns = @JoinColumn(name = "patient_id"))
+             private List<Patient> patientList =new ArrayList<>();
+
+
+         here it will create a separate table  where parent and child mapping will be maintained here. new table doctor_patient will be created and having column of doctor_id (representing parent table) and patient_id (representing child entity ). 
+
+
+
+
+        Bi directional (reference from both sides )
+
+
+        no change in db schema and parent entity side .
+
+        In child entity side add a new field of list<parent entity> and annotate it with manytomany 
+
+
+        eg ::
+
+                @ManyToMany(mappedBy = "patientList")
+                private List<Doctor> doctorList =new ArrayList<>();
+
+                for the key mapped by  we  give value as  column name of childentity in parent entity .
+
+
+          Note :: if we insert from inverse side i.e from child entity we will give parent entiy details to insert then jpa will insert data in both child entity and parent entity but it will not insert   insert mapping of both in new table  because it is here just mapped by . we have to manually mention child details in setter function of parent details . 
+          
+          so better to insert from owing side only so that in all 3 tables data will get inserted.     
+
+

@@ -1,0 +1,384 @@
+
+
+
+Till Now we used only already predefined methods in JPARepository like (save , findById) and other methods and we didn't write any custom query till now.
+
+But we can have other methods also like 
+
+(1) Derived Query ::
+
+       Here automatically query will be formed with method name itself by following some naming convengtion.
+       Derived query is used only for get or remove operations not for insert and update.
+
+
+       there is a  regex that needs to followed while giving the name to method.
+
+
+       syntax :: (find|read|get|query|search|stream|count|exists|delete|remove)((\\p{Lu}.*?))??By
+
+
+       * it states that method name should start from find|read|get|query|search|stream|count|exists|delete|remove.
+
+       * next it should be start with capitalLetter and after that we can have as Many characters we want.
+
+       * after that add 'By'
+
+       * at the end give columnNames.
+
+
+       eg ::
+
+       to find details by name ::
+
+               public List<FarmerDetails> findFarmerDetailsByName(String farmer);
+
+       to find details by 2 columns ::
+
+              public List<FarmerDetails> findFarmerDetailsByNameAndPhone(String farmer,String phone);
+
+
+        
+        we can have comparison also like greaterthan , islike , notNull etc... at end of the method names 
+
+        eg :: 
+               public List<FarmerDetails> findFarmerDetailsByIdGreaterThan(Long id);
+
+
+
+
+
+ same we can write for delete also but while deriving delete methods we should annotate that method with @Transactional or else it will throw error.              
+
+
+
+                                  
+
+
+
+                                  pagination and sorting 
+
+
+
+
+ In JPA We have 2 Interfaces Pageable and Sort by using them we can get pagination and sorting .
+
+
+ pagination ::
+ 
+
+        to the methods what ever we declare in repository class pass this pageable object to them.
+
+
+        create pageable interface object with page number and limit.
+
+        eg :: 
+
+            Pageable pageable=PageRequest.of(pageNumber,limit);
+
+            pass this pageable object to you repo method .
+
+            we can get either list of rows for that page or we can get list of rows wrapped with page i.e either List<FarmerDetails> or Page<FarmerDetails>. 
+
+            if we get  Page<FarmerDetails> there we can get additional info like is it last page , total pages , total rows etc...
+
+            from Page<FarmerDetails> we can get our list of elements from .getContent() field.
+
+
+
+
+
+sorting ::
+
+
+     while creating pageable object we can give sort object also and we mention on what field we need to sort and sorting type ascending or descending  
+
+
+     eg :: 
+
+       Pageable pageable=PageRequest.of(pageNumber,limit, Sort.by("name").ascending());
+
+
+    if we have multiple fields to sort we can give them by ',' separated .
+
+       eg ::
+
+         Pageable pageable=PageRequest.of(pageNumber,limit, Sort.by("name","phone").ascending());
+
+    for multiple elements sorting will be happened on order we mention i.e first it will sort by name then sorting will be happened by phone number.
+
+
+    if we want  different sorting for different fields i.e for name we want to sort by ascending and for phone we want sort by descending then we have to create sort object separately and pass it to pageable object .
+
+
+         eg :: 
+
+             Sort sort = Sort.by(Sort.Order.asc("name"),Sort.Order.desc("phone"));
+             Pageable pageable=PageRequest.of(pageNumber,limit, sort);
+
+
+
+we can directly pass this sort object to our normal derived methods also .( if we don't want pagination but want only sorting)             
+
+
+
+          
+
+
+
+
+
+
+
+
+
+
+                                                  Java Persistance Query Language (JPQL)
+
+
+
+JPQL is same as sql but here instead of dealing directly with tables and columns  we will dealing with enttity objects and fields. 
+
+ Instead of having derived query form method name syntax we can directly write a query in JPQL (not SQL) on top of method and no need to maintain any syntax while giving method name .
+
+
+          for eg ::
+
+
+              @Query("select u from farmer u where u.name = :name and u.phone = :phone")
+              public List<FarmerDetails> getFarmerDetailsByNameAndPhone(@Param("name") String name, @Param("phone") String phone);
+
+        
+
+         In general SQL for selecting all elements we use * where as here we need ot use alias of entity name.
+
+
+    Note :: while returning if we know it might return multiple elements we should use list as return type or else it will throw exception
+    
+
+
+
+
+
+
+Joins in JPQL 
+
+
+
+lets consider in one to one mapping where we have 2 entities farmer and field .
+
+
+
+       farmer :: 
+
+
+       @Entity(name = "farmer")
+       public class FarmerDetails {
+
+             @Id
+             @GeneratedValue(strategy = GenerationType.IDENTITY)
+             private Long id;
+
+
+             private String name;
+
+             private String phone;
+
+             @OneToOne(cascade = CascadeType.ALL)
+             @JoinColumn()
+             private FieldDetails fieldDetails;  
+        }
+        
+
+
+        field :: 
+
+
+        @Entity
+        public class FieldDetails {
+
+           
+           @Id
+           @GeneratedValue(strategy = GenerationType.IDENTITY)
+           private Long fieldId;
+
+           private String fieldName;
+             
+      
+         }
+
+
+
+
+     if we want to get farmer details by a field name jpql query will be like 
+     
+
+     @Query("select f from farmer f join f.fieldDetails fl where fl.fieldName =:fieldName")
+     public FarmerDetails getFarmerDetailsByFieldName(@Param("fieldName") String name);  
+
+
+    here no need to mention second entity and also on which column we should perform join , jpa automatically perfrom join based on entity config we gave.
+    
+
+    as we selected only one entity columns we directly kept return type as thaat entity but some times we need to fetch some columns from parent entity and some columns from child entity then return type would be some thing like  ::
+
+
+        @Query("select f.name ,fl.fieldName from farmer f join f.fieldDetails fl where fl.fieldName =:fieldName")
+        public List<Object[]> getFarmerDetailsByFieldName(@Param("fieldName") String name);   
+
+      
+      select all the necessary columns from both tables and return each row as a array so in array elements will be columns and they will be in order in how we fetched them .
+
+      in our service after fetching list of rows as list of objects convert them to our DTO and give them as response like  :: 
+
+
+         eg :: 
+
+
+             
+               List<FarmerDto> farmerDtos = new ArrayList<>();
+
+
+              List<Object[]> objectList = farmerRepository.getFarmerDetailsByFieldName(name);
+
+              for (Object[] object: objectList){
+                 String farmerName = (String) object[0];
+                 String fieldName = (String) object[1];
+
+                 FarmerDto farmerDto=  new FarmerDto(farmerName,fieldName);
+                farmerDtos.add(farmerDto);
+              }
+
+
+              return farmerDtos;
+
+
+
+
+    If we want to return directly from repo itself as dto instead of object we can create object of dto while fetching each row itself and we can directly return list of dtos form repo itself .
+
+
+        eg :: 
+
+
+             @Query("select new com.spring.DTO.FarmerDto(f.name ,fl.fieldName) from farmer f join f.fieldDetails fl where fl.fieldName =:fieldName")
+             public List<FarmerDto> getFarmerDetailsByFieldNameAsDto(@Param("fieldName") String name); 
+
+
+
+    
+
+    N+1 Problem in one to many or many to many mapping ::
+
+
+    Basically we Know in one to many or many to many mapping child entity was  lazy initialized (i.e jpa  will not fetch it's child entity data while fetching parent entity data itself) and this problem was solved by mentioning fetch type as eager while mapping.
+
+    But , if we have a query where we have to get more than one parent entity then for optimizing jpa first fetches all the n parent entity rows in 1 query and after that for every parent entity it will make separate db call to fetch it's associated child entity such that total it was making N+1 queries to fetch data .
+
+
+
+
+    To solve this problem we have 2 approaches :: 
+
+
+    (1) Using Fetch join instead of join this tells while fetching parent itself fetch all it's child entity data also .
+
+
+         eg :: 
+
+                @Query("select f from farmer f join fetch f.fieldDetailsList fl where f.name =:farmerName")
+                public List<FarmerDetails> getFarmerDetailsByFarmerName(@Param("farmerName") String name);    
+
+
+
+
+    (2)  using batch size , set batch size while defining mapping so that jpa will fetch rather thn one by one it will query batch wise for eg if we give batch size as 2 then at a time it will fetch child entity data for 2 parent entity instead of one by one .atleast it will reduces from n to n/2 like that 
+    
+          eg ::
+            
+            @OneToMany(cascade = CascadeType.ALL,fetch = FetchType.EAGER)
+            @JoinColumn(name = "farmer_id")
+            @BatchSize(size = 10)
+            private List<FieldDetails> fieldDetailsList;
+
+
+     till now we gave solutions for jpql queries but this issue will come for derived method queries also . so there we need an @EntityGraph annotaion over derived method. so that it will tells JPA to fetch all the child entityData while fetching all its 
+     
+
+     eg ::
+
+            @EntityGraph(attributePaths = "fieldDetailsList")
+            public List<FarmerDetails> findFarmerDetailsByName(String farmer);
+
+
+
+
+    
+ For performing multiple joins in jpql also we follow same as sql only thing is no need to mention on it will automatically mapp's based on association we gave
+  
+
+       eg ::    @Query("SELECT a FROM A a  JOIN a.bList b  JOIN b.cList c WHERE c.someProperty = :someValue")
+
+
+
+
+
+
+   By Default JPQL accpets only  select queries but if u want to perform delete , update or insert queries we need to have one more annotation on top of  jpql query called @Modifying. and also as we are updating db we need to annotate this method with @Transactional also.
+
+        eg :: 
+
+
+            @Transactional
+            @Modifying
+            @Query("delete from farmer f where f.name =:name")
+            public void deleteFarmerByName(@Param("name") String name);     
+
+
+
+   But here we have issue i.e as we are deleting the row using jpql it will direclty deletes record in db not in persistance context.
+   
+   Let's assume in one http request we inserted a row so it will insert in db and in persistance context and then we deleted the row in db but it will not deleted in pc so if fetch the data as we know first it will fetch data from pc and as data was not deleted from there so we will get data even though we deleted the data.
+
+
+   flush :: it tells us to cmmit all the data what we have in pc into db 
+   clear :: it will clear the data from pc 
+
+
+   so while deleting a row we will set properties of flush automatically and clear automatically to true so that data will be deleted from pc also .
+
+
+         eg :: 
+
+
+                @Transactional
+                @Modifying(flushAutomatically = true, clearAutomatically = true)
+                @Query("delete from farmer f where f.name =:name")
+                public void deleteFarmerByName(@Param("name") String name);                       
+
+
+
+
+
+  For pagination and sorting in jpql we follow same as derived query just pass objects of pageable and sort as parameters to our method jpa will make use of them for pagination.
+
+
+
+  Named Query ::
+
+
+            there is scenario like we need to use same query at multiple parts so instead of writng same query every where write that query at one place and name that query and use name where ever u want so that in future if u want to change query we can update at only single place .
+
+
+            we can mention those queries at top of entity and give them name and use that name in our repo jpql method
+
+
+            eg :: 
+
+                 @Entity(name = "farmer")
+                 @NamedQuery(name = "fetchByNameQuery", query = "select f from farmer f where f.name =:name")
+                 public class FarmerDetails {}
+
+
+
+                 @Query(name = "fetchByNameQuery")
+                 public List<FarmerDetails> findFarmerDetailsByName2(@Param("name") String name);    

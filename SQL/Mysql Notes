@@ -1,0 +1,357 @@
+SQL ::
+
+
+Sql databases (Relational databases):: 
+   
+   Data will be stored in  tables .
+   we can perform joins between 2 or more tables.
+   These db have fixed or predefined schema.
+   Low performance when they huge volume of data .
+
+  eg :: mysql , postgres
+
+
+Nosql Databases (non Relational database):: 
+
+   Data will be stored in  key-value pair or nodes or document-based or graphs .
+   we cannot perform joins between 2 or more tables.
+   These db have dynamic schema.
+   Easily works with huge volume of data .
+
+  eg :: cassandra, mongodb, hbase
+
+
+
+database :: it is a storage unit that cntains organized data such as tables, schemas, index , views etc..
+
+Schema :: it reprsents the structure of a table. multiple tables can have same schemas.
+
+
+primary key ::
+
+   primary key is a column or set of columns that helps in   uniquely identifying each row in a table (such that there will be no other row in table having same values );
+   
+   only one primary key was alowed for a table;
+   
+   if you want to add a new column to a primary key or to update a primary key first you should drop the existing  primary key and add a new primary key 
+   
+   primary key helps us to maintain no record in that column is null
+   
+   giving a primary key ::
+   
+   (a)  while creating a table itself  ::
+            create table department (
+              id INT,
+              name varchar(250)
+            primary key (id,name));
+    
+    (b) giving primary key after creating table ::
+        
+        alter table department add constraint primary key (id,name);
+        
+        
+                
+   dropping a existing primary key ::
+            alter table department drop primary key
+            
+            
+           
+           
+Unique key ::
+
+    unique key is a constraint that enusures all the values in a column or set of columns are unique.
+    
+    unlike primary key unique allows one null value per column.
+    
+    we can have  n number of unique keys for a table.
+    
+    giving a unique key :: 
+     
+    (a)  adding unique key constraint while creating table :: 
+     
+              CREATE TABLE users (
+                        id INT PRIMARY KEY,
+                       email VARCHAR(255) UNIQUE,
+                       username VARCHAR(100),
+                     CONSTRAINT unique_username UNIQUE (username)
+               );
+               
+     (b) giving unique key constraint after creating table :: 
+     
+              ALTER TABLE orders ADD CONSTRAINT unique_customer_order UNIQUE (customer_id, order_date);          
+
+     
+Foreign Key :: 
+
+      Foreign key is a column or set of columns in one table refers to primary key in any other table. bascially it helps in establishing  relationship between 2 tables.
+      
+      so foreign key columns should not have value other than values of the column of parent table that this foreign key was referring.
+      
+        
+      Syntax for creating foreign key ::
+      
+      (a) adding foreign key while creating table :: 
+      
+               CREATE TABLE orders (
+                       order_id INT PRIMARY KEY,
+                       customer_id INT,
+                      FOREIGN KEY (customer_id) REFERENCES customers(id) on delete cascade on update cascade;
+               ); 
+               
+               
+        here customer_id in orders table is referring to customer_id in customers.
+        
+        so customer_id should not have value that were not there in id of customer table.
+        
+        on delete cascade tells us if any row in parent table was deleted then automatically the row in child table which was referring that row will also get deleted. 
+         
+        on update cascade tells us if value of parent table's column was updated then the foreign key column value will also get updated automatically .
+        
+        
+        (b) giving foreign key after table creation ::
+        
+                   ALTER TABLE orders ADD CONSTRAINT fk_customer FOREIGN KEY (customer_id) REFERENCES customers(customer_id) on delete cascade on update cascade; 
+        
+                  
+     
+     
+Joins :: 
+
+(1)  INNER JOIN
+
+     Returns rows that have matching values in both tables.   
+     
+     sample query :: 
+     
+                   SELECT e.id, e.name, d.name AS department FROM employees e INNER JOIN departments d ON e.department_id = d.id;   
+                   
+(2) LEFT JOIN (or LEFT OUTER JOIN)
+
+      Returns all rows from the left table, and matched rows from the right table. Returns NULLs if no match.
+      
+      sample query :: 
+          
+                  SELECT e.id, e.name, d.name AS department FROM employees e LEFT JOIN departments d ON e.department_id = d.id;
+                  
+                  
+(3) RIGHT JOIN (or RIGHT OUTER JOIN)
+
+      Returns all rows from the right table, and matched rows from the left table. Returns NULLs if no match.
+      
+      sample query :: 
+       
+                  SELECT e.id, e.name, d.name AS department FROM employees e RIGHT JOIN departments d ON e.department_id = d.id;
+                  
+(4) FULL JOIN (or FULL OUTER JOIN)
+
+      Returns all rows from both tables, with NULLs for non-matching rows on either side.
+      
+      sample query :: 
+                 
+                 SELECT e.id, e.name, d.name AS department FROM employees e FULL OUTER JOIN departments d ON e.department_id = d.id;                  
+
+(5) CROSS JOIN
+ 
+       Returns the Cartesian product – every combination of rows from both tables.
+       
+       sample query ::
+             
+                  SELECT e.name, d.name AS department FROM employees e CROSS JOIN departments d;
+                  
+(6) SELF JOIN
+
+      Joins a table to itself. Useful for hierarchical data.
+
+      sample query ::
+      
+                  SELECT a.name AS employee, b.name AS manager FROM employees a JOIN employees b ON a.manager_id = b.id;                  
+
+
+
+Union , Union All :: 
+
+   Union operation combines result set of two or more select statements
+   
+   eg ::
+   
+      SELECT id , name, city FROM employees_2023  UNION  SELECT  id, name, city FROM employees_2024;
+      
+      
+      here we are selecting 3 columns from employee_2023 and employee_2024  
+      
+      
+      difference between union and union all is union will give only unique rows where as union all gives all the rows from both tables even though they are duplicates. 
+      
+      
+      both select statements should select  same number of columns and data types should be same but column names need not to be same.
+      
+      here duplicate in the sense not single column what ever columns we are selecting that combination needs to check for duplicate.
+      
+      employees_2023
+                     emp_id	name	city
+                      1	Alice	New York
+                      2	Bob	Chicago
+
+      employees_2024
+                    emp_id	name	city
+                      2	Bob	Boston
+                      3	Carol	Houston 
+                      1	Alice	New York
+                      
+                      
+                      
+                      
+        Union wil give result like :: 
+        
+                      1	Alice	New York
+                      2	Bob	Chicago
+                      2	Bob	Boston
+                      3	Carol	Houston 
+                      
+                      
+                      
+        union all give result like :: 
+        
+                      1	Alice	New York
+                      2	Bob	Chicago
+                      2	Bob	Boston
+                      3	Carol	Houston
+                      1	Alice	New York
+                      
+    
+
+Intersect :: 
+
+   intersect operator returns only common rows in two or more select statements. and also removes duplicates like union.                      
+                      
+       syntax ::
+        
+              SELECT  id, name, city FROM employees_2023  UNION  SELECT id, name, city FROM employees_2024;      
+                      
+                      
+          
+      employees_2023
+                     emp_id	name	city
+                      1	Alice	New York
+                      2	Bob	Chicago
+
+      employees_2024
+                    emp_id	name	city
+                      2	Bob	Boston
+                      3	Carol	Houston 
+                      1	Alice	New York
+                      
+                      
+                      
+                      
+        intersect wil give result like :: 
+        
+                      1	Alice	New York
+       
+       
+       
+
+
+NULL ::
+  
+    Null represents missing or unidetified values in a column .
+    
+    it is not a data type so no logical operators work on it. we an check only whether that column value is null or not .
+    
+    syntax ::
+    
+    select * from table where name is NULL;  or  select * from table where name is not NULL;    
+    
+        null value effects aggregate functions  . if we do Avg(sum) and sum column contains any null values it will ignores null values. 
+                      
+    
+    
+    
+    
+    
+ACID Properties ::
+
+
+        Transactions refers to a sequence of operations performed as a single unit of work.
+
+        Aicd properties are fundemental principles that ensures reliable and consistent transactions in a database.
+
+        Atomicity :: 
+        
+              A transaction is all or nothing . for example a transaction has 5 sql operations and 3 of them executed successfully and next one failed due to an issue   then entire transaction will be stopped and previous operations will be rolled back. so either transaction must be completed fully or stopped if any issue occurs in middle.
+
+       Consistency :: 
+          
+             A transaction must bring database from one valid state to another valid state. i.e it should respect all the constraints like foreign key or primary key etc.
+             
+       Isolation :: 
+         
+              Multiple transactions will run independently i.e they won't access modified data of another transaction which will helps in ressolving (dirty read, non repetative read , phantom read ) problems.
+              
+       Durability ::  
+       
+             once transaction was completed and it is saved in disk even system crashes data will remain it won't get efected.               
+
+
+
+
+
+Indexing :: 
+
+      index is like a special lookup table which helps in fast quering
+      
+      indexing helps in fast querying data. generally if we want to query a row with name as sowrav it will go scanning each row and matches name in that row with sowrav , so it will take worst case complexity of o(n) . but if we create index on name column then it will takes complexity of o(logn)   
+      
+      if we create index on name it will create a balanced binary search tree on name . 
+      so that if we pass sowrav it will got to head node and compares sowrav > ravi so it goes to left and compare with left node.. so on until we find that name . once we got that name it will fetch it's data . 
+      
+      as we know traversing through binary search tree will take o(logn) complexity that's why it is faster than lenear search.
+      
+      creating index command ::  CREATE INDEX idx_name ON table_name(column_name);
+      
+      
+    
+    
+views :: 
+
+
+    views are virtual tables that were formed by a select query.data is not stored in these views it is only for read purpose.
+    
+    Views do not store data — they always pull fresh data from the base tables.
+
+    we can initially create a view with some complex query and next time if we want to execute the same query u need not required to give entire sql query we can directly give  select * from view .
+    
+    creating an view :: 
+     
+                 CREATE VIEW active_customers AS SELECT id, name, email FROM customers WHERE status = 'active';
+                 
+    updating an view ::
+      
+             	 CREATE OR REPLACE VIEW active_customers AS  SELECT id, name, email FROM customers WHERE status = 'active';
+             	 
+     drop an view :: DROP VIEW view_name;
+     
+     to list all the views in a db :: 
+     
+                     SHOW FULL TABLES WHERE TABLE_TYPE = 'VIEW';        	                           
+         
+         
+         
+having clause ::
+   
+       when we want to apply filter on groups after aggregation then we have to use having and we should not use where because while executing sql  query first it will filter rows on where cluase but at that time 'count(*), or sum(salary)' thsee results will not be available so it will throw errors, so to apply filters on aggregated data we use having by cluase .
+       
+       
+       eg  ::
+         
+          SELECT department_id, AVG(salary)
+                           FROM employees
+                           WHERE status = 'active'      
+                           GROUP BY department_id
+                           HAVING AVG(salary) > 50000; 
+                           
+                           
+          here first we will fetch all the active employess and group them by their department and find average salary of each department and fillay we will give department having average salary greater than  50000.                 
+
+
+            

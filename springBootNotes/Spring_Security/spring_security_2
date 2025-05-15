@@ -1,0 +1,155 @@
+    
+                                                                                    User Creation
+
+
+By default when you add spring security in pom , then in the time of application startup    a user will be created with username as user and password    as random uuid string.
+
+Every time when you restart the application new password will be generated.
+
+So , from now if you try to access any api we require this user name and password to login.
+
+
+Once user was created automatically by spring	boot this user will be stored in in memory not in db this user will be mapped to userDetails object and passed    to constructor of InMemoryUserDetailsManager , there it will be stored in    inmemory map .
+
+
+ Till now springboot created a user automatically    for us with default username and password. But we can bypass it like we can create our own user name and password . This can be achieved by 3 ways .
+
+
+      (1) using application.prop file (not recommended in prod just for testing)
+
+                            In app.prop we can give our desired username and password and role and create a user for us. So then springboot stops creating    user by default credentials . It will take this username and password to create a user.
+ 
+                                      Syntax ::
+ 
+                                                    spring.security.user.name=sowrav
+           spring.security.user.password=sowrav@123
+           spring.security.user.roles=ADMIN
+ 
+
+
+
+          (2) by creating our custom inMemoryUserDetailsManager object 
+ 
+                          As we know while springboot auto creation of users it create object of inMemoryUserDetailsManager (inside of it stores that user in in memory map). So we will create a user object and pass this object to constructor of inMemoryUserDetailsManager.
+
+                          Here we have an advantage of creating multiple users also unlike single in app.prop file as    inMemoryUserDetailsManager constructor accepts multiple userDetails.
+
+                            Steps :: 
+ 
+                                    (1) create a class and annotate it with @configuration and @EnableWebsecurity and create a bean of userDetailsService as it is parent of    inMemoryUserDetailsManager so better to create bean type    of userDetailsService 
+
+
+                                                                                          @Bean
+                   public UserDetailsService getUserDetailsService(){
+                            UserDetails userDetails1 = User.withUsername("customName1")
+                                          .password("{noop}password1")
+                                          .roles("ADMIN")
+                                          .build();
+
+                           UserDetails userDetails2 = User.withUsername("customName2")
+                                          .password("{noop}password2")
+                                          .roles("ADMIN")
+                                          .build();
+
+
+                             return  new InMemoryUserDetailsManager(userDetails1,userDetails2);
+
+                     }
+
+
+
+
+             Here we created 2 users and once if you created by custom bean then it no longer read value from app.prop file.
+
+     If we see while giving the password we gave like {noop}password1 actual password is password1 but noop is telling that while storing this  password in memory  it will be stored without any encoding and hashing.
+
+
+           Default format of storing any password is {id}pssword
+
+        Here id can be any encoding algorithm’s id. If we want to store password by encoding it in brcypt algorithm we can give password as {bcrypt}password1.
+        Like this we have many another algorithm like sha256 etc..
+
+
+     So when user entered password for authentication then flow will be ::
+
+        (1) it fetches user details by username 
+        (2) gets password encoded algorithm by encoded id from password and encodes  the user entered password by the encoded algorithm.
+        (3) now compares this encoded password with in memory encoded password.
+
+
+
+
+   While user creation also based on id we provided we have different password encoder. so by default password comes to delegate password encoder form there it goes to respective password encoder and gets encoded version of our password.
+
+       Example of storing in brypt algorithm
+
+         UserDetails userDetails2 = User.withUsername("customName2")
+                  .password("{bcrypt}"+ new BCryptPasswordEncoder().encode("password2"))
+                  .roles("ADMIN")
+                  .build();
+
+
+
+
+        Every time while user creation if we don’t want to mention id of password encoder we can directly create custom object of password encoder with our desired password encoder .
+
+
+            Eg :: 
+ 
+               @Bean
+               public PasswordEncoder getPasswordEncoder(){
+                       return new BCryptPasswordEncoder();
+                }
+
+        So from now no need to mention the id of password encoder while creating password .
+
+         Eg ::
+
+             UserDetails userDetails2 = User.withUsername("customName2")
+                           .password(new BCryptPasswordEncoder().encode("password2"))
+                           .roles("ADMIN")
+                           .build();
+
+
+
+
+     
+     (3) creating users dynamically and store users in db (Recommended in production)
+
+            To store user details in  db we need an entity with all required columns and also that entity should implement userDetails because while authentication springboot requires user in userDetails pojo so now this entity is a child of userdetails we can pass this entity for authentication.
+        
+             But make sure username and password fields of userdetails are mapped to the username and password of our entity .
+
+
+             In repository of this entity write a method to get userdetails by username.
+
+             implement userdetailservice from this entity’s service  and implement the method load by username because while authenticating  springboot uses  userdetailsservice   load by username method so if we implement that method and giving user details from db instead of from in memory for authenticating.
+
+
+            In controller write a method to register users so that users create in db and make sure before inserting encode the password with any password encoder.
+
+
+
+      But to send any request we need to authenticate first but here register api is first api that needs to be called for register any user so if we call this api it will give 401 unauthorized.
+
+     So here we need to bypass authentication for this api .
+
+
+           For that we need to configure security filter chain to exclude only this api for authentication  and authenticate rest all apis. 
+
+
+             @Bean
+             public SecurityFilterChain getSecurityFilterChain(HttpSecurity httpSecurity) throws Exception {
+                          httpSecurity.authorizeHttpRequests(auth -> auth
+                                         .requestMatchers(new AntPathRequestMatcher("/api/registerUser")).permitAll()
+                                         .anyRequest().authenticated())
+                                         .csrf(csrf -> csrf.disable())
+                                         .headers(headers -> headers
+                                              .frameOptions().sameOrigin())
+                                         .httpBasic(Customizer.withDefaults());
+                          return httpSecurity.build();
+                 }
+
+
+
+   

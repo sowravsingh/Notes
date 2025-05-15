@@ -1,0 +1,420 @@
+                                                             ORM (Object Relational Mapping)
+                                                             
+
+* ORM is a framework that helps us to connect our objects to database tables
+
+* In Before we directly accessed JDBC from our application but here we don't need to directly write sql queries and  execute them with jdbc inbuilt methods like execute , update etc...
+
+* we will interact to database using java objects
+
+
+* in ORM Frame work main component is  JPA (It is a interface and have some methods ), by default it was implemented by Hibernate 
+
+
+
+Steps to use JPA ::
+
+  step -1 ::  Add dependency in ur pom.xml
+
+                        <dependency>
+                             <groupId>org.springframework.boot</groupId>
+                             <artifactId>spring-boot-starter-data-jpa</artifactId>
+                        </dependency>
+
+
+  step -2 ::  database connectivity properties in app.prop file
+
+
+                   spring.datasource.url =jdbc:h2:mem:OrderDB
+                   spring.datasource.username=sa
+                   spring.datasource.password=
+                   spring.h2.console.enabled=true
+
+
+
+  step -3 :: create Entity (basically a class or pojo )
+
+            Annotate this class with @Entity suhc that springboot treats this as a entity , here entity is considered as a table in our db , class name is our table name , fields in this class are treated as columns (we can have properties like primary key etc.. for these fields also).
+
+            whenever you are creating an object for this class we are creating a new row in that table .
+
+            so we can save this row by calling jpaRepository in built methods like persist and we can pass this object as parameter , such that here we havnt't write any sql query to insert a row , every thing was done with the help of  java object .
+
+
+            @Entity
+            public class OrderDetails {
+
+                 @Id
+                 @GeneratedValue(strategy = GenerationType.IDENTITY)
+                 private int id;
+
+                 private String orderType;
+
+                
+                // Generate getters , setters and constructors
+
+            }
+
+
+            @Id is like we are making that id column as primary key .
+            @GeneratedValue is like we are telling to auto generate and with sequence.
+
+
+  Step -4 :: creat a repository class annotated withh @Repository and extends JPARepository class , for each table we have their own repository class, By extending JPARepository it porvides us some inbuilt methods to save , update , fetch ..
+
+             If we want to write our own queries we can write those methods in this repo class, but not directly sql queries , we wiill write in jpql or hql jdbc by using dialect change them into sql and execute that query.
+
+
+             @Repository
+             public interface OrderRepository extends JpaRepository<OrderDetails,Long> {
+
+                          // as of now we are using all inb=Built but if u want any other methods we can write them here  
+            }
+
+
+  step -5 :: write ur own service class and controllers to use this repo methods to save and other db related activities.
+  
+
+
+
+
+
+
+                                      Key components / Architecture of JPA
+
+
+  (1) Persistant Unit :: It is used to create an Entity mnager factory , the db configurations (like db url, driver class name) we provide in app. prop file it is treated as one persistant unit and with those config we will create an entitymanager factory for that db . 
+
+       If we have multiple db so we will give multiple db config then for each db config we will have one persistant unit .
+
+       Basically persistance unit is a logically grouping some entities which share same configurations (i.e a db config for all the tables that falls into that db).
+
+       if we have only one db config (i.e if we mention in app.prop file ). then sprignboot automatically group all the entity class (tables) to this db only.
+
+
+
+
+
+  (2) Entity Manager Factory : this is a java  object of the db config we provide app. prop file and this is created with the help of persistent unit (i.e for each db one persistent unit and one entity manager factory ). entity manager factory provides us entity manager when we require. (1:1)
+
+         At application start up itself this entity manager factory object will be created with the help of persistance unit.
+         
+
+         We can create our own entity manager factory in config file  by creating an object for LocalContainerEntityManagerFactoryBean  (which takes argument of datasource , jpa vendor adaptor), datasource is same as persistance unit where we will give db config in @config  file.
+
+         Like this we can creeate multiple entitymanagerfactory for each db as creating separate object for each datasource.
+
+
+
+  
+
+  (3) Entity Manager :: Entity Manager is Interface which have many methods like persist (to save), fetch , update . as we use jpa repository inbuilt methods in our repository class those methods internally call this entity manager methods only , so basically jpa repository class is a wrapper of this entity manager .
+           
+
+           then y can't we use directly entity manager object methods instead of using jpa repository  
+                 (a) JPARepository have some extra inbuilt methods like findAll() ,deletAll() methods
+                 (b) For insert , update , delete methods in entity manager class those methods are not annotated with @Transactional where as in JPARepo those methods are annotated with @Treanscational
+                 (c) JPARepository gives some methods for pagination .
+
+
+            But still if we want to use directly entity manager methods then we can create bean for entity manager and use it's method.
+
+                eg :: @Presistenccontext
+                      EntityManager entityManger
+
+
+                      entityManager.persist(userObject);
+
+                Note :: but while calling persist , delete or update methods then their caller method should be  annotated with @Transactional or else it will throw exception like transaction is not open.
+
+
+            so for every time when we want to interact with db we need entity manager object .
+
+           SessionImpl class in hibernate provides implementation for the methods in entity manager.     (1: many)
+
+
+
+   (4) Persistance context :: in each entity manager we have persistance context. it is a place holder for all entities we are working on . i.e when we want to store a data we will create a object for that entity and call persist method so then this object will be stored in here . same as when we do get query,so first data comes from db to here and from here we can do our business logic on this entity.  as it was storing the data which was same in db this persistance context helps us in first level caching.   
+
+              For Each entity manager one persistance context object is created for which holds all the entities it's working. 
+
+
+              Persistance context manages lifecycle of entity it is holding.    
+
+
+   (5) Dialect :: helps as a translation between java objects and jdbc as we are giving java object to store into a db , but jdbc deals with ony sql language (here it is in jql language ), so dialect helps us to translate this java object into a sql query and it will pass that sql query to jdbc to execute.
+                      
+                      We can choose which dialect we want to use by mentioning it in config or else springboot default chooses hibernate dialect.
+
+
+
+
+ Transaction type : this is a property that was set in app.prop file while configuring db connections it has 2 types ::  Resource local ,jta
+
+
+                    if we set transaction_type as Resource Local then it scope is upto that  db only. i.e if we have a method annotated with @Trensactional and if we do rollback it will rollback the tables that were updated in this db only but it doesnot roll back if any other tables of other db  were updated  
+
+
+                    JTA is like for all the db one trasnaction manager will be present .
+
+
+ Transaction Manager ::  For each entity manager we have one transaction manager i.e if we define transaction type as resource local then for each EMF object we have its own Transaction manager . such that it's transaction scope is upto it's db only , 
+
+                       where as if we set trasction type as JTA in persistance unit then single transaction manager object will be created and this is used for all entity manager factory.
+
+
+             At time of application start up based on trasnsaction type sb will create JPATrasancationManagerObject if transaction type is resource local or else it will create JTATransactionManagerObject if transaction type is JTA.
+             
+
+             Same if we are creating manual EMF object then create object of which transaction manger u waant (either JPA or JTA). and pas this EMFobject to that method to create object .
+
+
+
+
+    Creating entity manager factory object and transaction manager object process will be happened at aplication startup level only .
+    
+
+
+    Usage of Entity manager  and persistance context::
+
+      EM is an interface which have all the methods to perform crud operations . Session IMPL class provided implementation for this interface.                                    
+
+
+
+
+
+Lifecycle of entity in persistance context :: 
+
+
+   when u creaet an object for entity  with  new keyword  it is in  Transient state 
+
+   from there when u invoke .persist() method this object will come to persistent context  and it is in Managed state. 
+
+          from managed state it can go to Detached state , Remove state , or save into db .
+
+          Detatched state is we are closing that entity from persistance context, so that we manually manage it's life cylce and saving it to db.
+    
+          or else we can store it into db  by invoking .flush() method.
+
+    Similarly if we perform get query entity first comes from db into managed state . from thre we can perfrom operations on it.
+    
+    if we want to delete data from db first it will remove that entity from persistance context (by invoking .remove() method ) ,so Now entity move into Removed state , and next it will remove data from db also and later it will move to detatched state such that this entity is no longer managed by persistnce context.
+
+    But after moving into removed state still if u want to go back to managed state but not to delete data actually from db we can invoke .persist() method so that entity move back to managed state and no data will be deleted from db.              
+
+
+
+
+
+
+
+
+
+
+                            First Level Cache (in Entity manager)
+
+
+
+* whenever u call entityMnanager.persist() method it will not directly store into db first it will go to persistance context and then from there it will be moved to db.
+
+* actually it will be stored into db when it call internally .flush() method (generally it will be called in cmmit state ).
+
+* same for getting data from db also , first data comes into persistance context from db , from there it will be given to us . for deleting also first data will be deleted in persistance context and it will delete in db 
+
+*  so now data is in both persistance context and also in db.
+
+* so next time whne u want to get data first our entity manager will search for that data in it's persistance context , if that data is present is there no need to connect to db it will return from persistance context only.
+
+* for each entity manager it has it's own persistance context such that if data is stored in one persistance context and while fetching data u are searching in another persistance context data will not be present there and we have to got to db to get that data.
+
+* generally for every http request one new entity manager object  will be created before reaching to controller itself . so if we are inserting daata through one api and getting data through another api then second time it needs to go to db only as data is not there in it's persistance context.
+
+
+
+
+we can still maintain 2 differrent entity managers for a single persistance context by manuallly creating entity manager for different scenarios , 
+
+    steps :
+      step -1 :autowire entityManagerfactory in our service classs as required to create entitymanager
+
+                @Autowired
+                EntityManagerFactory entityManagerFactory;
+
+
+      step -2 : create different entity managers at multiple scenarios 
+
+
+
+                  public void testMultipleEntityManagers(){
+
+                                EntityManager entityManager = entityManagerFactory.createEntityManager();
+                                OrderDetails orderDetails = entityManager.find(OrderDetails.class, 1L);
+                                System.out.println("order details found by first entity manager is "+orderDetails);
+                                OrderDetails orderDetails2 = entityManager.find(OrderDetails.class, 1L);
+                                System.out.println("from first entity manager second time querying "+orderDetails2);
+                                entityManager.close();
+
+                               
+                                EntityManager entityManager2 = entityManagerFactory.createEntityManager();
+                                OrderDetails orderDetails3 = entityManager2.find(OrderDetails.class, 1L);
+                                System.out.println("order details found by second entity manager is "+orderDetails3);
+                                OrderDetails orderDetails4 = entityManager2.find(OrderDetails.class, 1L);
+                                System.out.println("from first entity manager second time querying "+orderDetails4);
+                               entityManager.close();
+
+                    }
+
+
+
+
+
+
+
+
+                        
+                          Second Level Caching                     
+
+
+ * Till now we have separate entitymanager for each http request so that persistance context is separate for each context , resulting saperate cache for each http request  
+
+ * from now there will be one more common cache (second levle caching) which is common for all http requests , such that for a new http request  first it will search data in it's persistant context if it is not present there then it searchs in second levele caching. if there we couldn't find data then it will query for data in db.
+
+
+    flow will be like ::
+
+
+     first http request    -----> own entity manager object (first level caching) -------------|                    
+                                                                                               |                                                           
+                                                                                               |                                                                 
+     Second http request   -----> own entity manager object (first level caching) ---- second level cahcing  <------>   db
+                                                                                               |
+                                                                                               |
+     thrid http request    -----> own entity manager object (first level caching) -------------|
+
+
+
+
+Steps to enable second level caching :: 
+
+                      step -1 : add 3 dependencies in pom.xml 
+
+                                
+                                (1) this provide us jcache interface which have all the main methods to create or update cache
+                                <dependency>
+                                     <groupId>javax.cache</groupId>
+                                     <artifactId>cache-api</artifactId>
+                                     <version>1.1.1</version>
+                                </dependency> 
+
+                                
+                                (2) this provides implementation of jcache interface of above , actually this interface have 3 implementations (echcache , caffine, hazzlecast). currently we are using ehcache.
+
+                                <dependency>
+                                     <groupId>org.ehcache</groupId>
+                                     <artifactId>ehcache</artifactId>
+                                     <version>3.10.8</version>
+                                </dependency>  
+
+                                (3) this dependency act as bridge between hibernate and jcache as we will give some annotations to entitys to enable second level caching for them . so specific logic needs for executing those annotations and this library helps us with that .
+
+                                    <dependency>
+                                        <groupId>org.hibernate</groupId>
+                                        <artifactId>hibernate-jcache</artifactId>
+                                        <version>6.5.2.Final</version>
+                                    </dependency>  
+
+
+
+                       Step -2 :: set properties in app. prop file 
+                       
+
+                              (1) spring.jpa.properties.hibernate.cache.use_second_level_cache=true
+
+                                     Here we setting to enable second level cache 
+                              
+                              (2)  spring.jpa.properties.hibernate.cache.region.factory_class=org.hibernate.cache.jcache.JCacheRegionFactory
+                                    
+                                    this tell hibernate to use hibernate-jcache class to manage caching , we can also directly provide echache factory but better to use hibernate -jcache 
+
+                                    region is logically grouping of different entities , for each region we can set poperties like eviction policy, ttl , cache size ,max no. of elements etc..
+
+                                    so that we can granually manage our entity in cache .
+
+                                    we will set the region properties in ehcache.xml file and give it's path in app.prop file 
+
+                                     eg :: spring.cache.jcache.config=classpath:ehcache.xml 
+
+                              (3)  spring.jpa.properties.javax.cache.provider=org.ehcache.jsr107.EhcacheCachingProvider
+
+                                           here we are setting for jcache api which provider to use , currently we are setting to ehcache we can use any of the other 2 providers also . 
+
+                       
+
+                     step -3 :: for entity class annotate them with @Cache so that springboot knows to enable cache for which entities and also set in which region we should store this  entity and what is the concurrency startegy .
+
+                               concurrency strategy tells how to behave if we have concurrent requests on cache like one is updating an entity in cache and at sam time another request is trying to fetch the data from cache.
+
+                               @Entity
+                               @Cache(usage = CacheConcurrencyStrategy.READ_ONLY, region = "userDetailsRegion")
+                               public class OrderDetails {
+                               
+                               }
+
+
+                     
+
+
+
+ Different types of concurrent strategy                      
+
+
+ (1) Read Only :: 
+
+          Good for if our pupose is only reading the data.
+
+          for a entity if we set strategy as read only , we can perform insert query on that entity and also we can perform fetch query where as if we try to update that entity it will throw exception . 
+
+
+  (2) Read Write ::  
+
+         It helps to not read any stale data , i.e while reading the data it will put shared lock so that no one can do write operations but can do read. 
+
+
+         while updating it will follow porcess like:: 
+
+
+         put exclusive lock   -> make that entity in cache as invalidate --> update data in db  --> commit the data ---> if everything fine update in cache also with new data and remove invalidate flag on thet entity   ---> release the lock.
+
+
+         if any exception came and needs to roll back   -> simply rollback  data in db  --> release the lock (but in cache still that entity will be in invalidate state).
+
+         so that if next get call happens it find that data is invalidate so get data from db and update it in cache also and remove invalidate flag .
+
+
+  (3) Non Strict Read Write 
+
+
+         here there will be no lock while reading data from cache 
+
+         but while updating data it acquires lokc  --->update data in db ---> if transaction was sucessfull --->  it will make entity in cache as invalidate  --> release lock .
+
+         so that if next get call happens it find that data is invalidate so get updated data from db and update it in cache also and remove invalidate flag .
+
+         if transaction was not successfull it will not make entity as invalidate nothing will impact in cache .
+
+
+         as we don't have read lock it is possible we can stale data . 
+                       scenario :: while updating data in db some one tries to get data from cache at that moment entity is not marked as invalidate so it wil read old data.
+
+
+  (4) Transactional :: 
+  
+
+
+        it will acquire read lock and write lock 
+
+        while updating put lock ---> upate data in db ---> if transaction was success full -> update data in cache also --> release lock 
+
+        while updating if anyone tries to read data as we acquired lock it will directly read data from db 
+
+        while reading data anyone tries to update data it will be in queue .                     

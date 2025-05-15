@@ -1,0 +1,230 @@
+
+                                                    @Async
+
+This annotation tells springboot to run that method (which was annotated with @Async) asynchronously . that is in a seprate thread   
+
+syntax ::
+       (1) to enable aysnchronous functionality first give @EnableAsync annotation to main springboot application class (so that sb will create beans for all the classes and itnerceptors required for these  asycncornous tasks ).
+       (2) annotate any mehtod with @Async .
+
+functionality  :: Spring boot initially starts with main thread and starts executing it's flow in between if it have to invoke any method which was annotatd with async then it will create a new thread and execute that method concurrently without blocking the main thread.
+
+
+
+
+Internally springboot uses ThreadPoolExecutor to create new threads for the async annotated methods.
+
+
+overview of Thred pool executor :: 
+         
+         which will creates a pool of threads and these threads are ready to execute set of tasks one by one once one thread is finshes the task assigned to it it will come back to thread pool and ready to pick another task.
+         ThreadPool has queue of tasks , and pool of threads 
+
+         minimum pool size   :: minimum number of threads that are pre created .
+         maximum pool size  :: upto which extent we hve to create new threads if all threads are occupied
+         queue size :: how many tasks we can accomidate .
+
+
+         initially if tasks come one by one threads will start picking those tasks from queue.
+
+         if threads are busy , tasks will be added to queuue and they are in waiting size.
+
+         once even queue got filled up with tasks now new threads will be created one by one upto max size and upcoming tasks from now are directly picked up by newly created threads.
+
+         if threads reach to max size and still new tasks are coming then it will throw task failure exception to those new threads. 
+
+
+
+
+once springboot starts it checks for default thread pool executor was provided by user if not provided then it uses SympleASyncTaskExecutor for creating new threads .
+
+SympleASyncTaskExecutor has thread pool of minimum size 8 and maximum size of Integer max value and queue size of integer max value.
+
+
+(Recommended to never use )
+Use Case -1  (use default springboot executor don't provide any custom one )::
+
+      Here you haven't provided any default ThreadpoolTaskExecutor (it is generally a wrapper of plain java ThreadPool executor. internally creates object of ThreadPool executor with default values as mentioned above ) .
+
+      so here springboot uses SympleASyncTaskExecutor for creating new threads .
+
+
+      This use case have some disdvanatages ::
+
+
+      (1) Under utilization of thread ::  as you can see minimum threadpool is only 8 and queue  size is very big .so if more tasks are there it will no create new threads until queue get's full.
+
+      (2) High latency :: as all the tasks will be stored in queue for long period as only 8 threads are available all those tasks will be in queue which leads to latency. 
+
+      (3) Thread Exhausation :: (very rare case but occurs ) if some times ur tasks are more than integer value then then the queue will get full and even not possible to create new threads then your application got failed.
+
+      (4) High Memory Usage :: as we can create number of threads upto integer max value where huge memory will be consumed.
+
+
+
+  all the above 4 problems were occured due to we have no control over creating thread pool .
+  
+
+
+ Use cas -2 (Creating our own custom ThreadPoolTaskExecutor) ::
+        
+        Create your own ThreadPoolTaskExecutor with your own configurations .
+
+
+        syntax ::  
+
+
+            @Bean(name = "customThreadPoolTaskExecutor")
+            public ThreadPoolTaskExecutor getThreadPoolTaskExecutorObject(){
+                  ThreadPoolTaskExecutor taskExecutor = new ThreadPoolTaskExecutor();
+                  taskExecutor.setMaxPoolSize(4);
+                  taskExecutor.setCorePoolSize(2);
+                  taskExecutor.setQueueCapacity(3);
+                  taskExecutor.setThreadNamePrefix("MyThread-");
+                  taskExecutor.initialize();
+                  return taskExecutor;
+            }
+
+
+         Now as springboot starts automatically it will search for any user define  ThreadPoolTaskExecutor bean as we defined so it will consider it not default bean.
+
+         you can also give bean name at method level to use which bean (if u don't give also it will consider once if we user define a bean for ThreadPoolTaskExecutor sb will ue this bean only) 
+
+         @Async("customThreadPoolTaskExecutor")
+
+
+
+
+ Use case -3 (Creating our own custom plain java thread pool executor bean) ::
+           
+            Internally ThreadPoolTaskExecutor will create Plain java's ThreadPoolEXecutor only , but now we directly creating bean of plain java ThreadPoolExecutor bean.
+
+
+            syntax :: 
+
+            @Bean(name = "plainJavaThreadPoolExecutor")
+            public ThreadPoolExecutor getJavaThreadPoolEXecutor(){
+                   ThreadPoolExecutor javaExecutor = new ThreadPoolExecutor(2,4,1, TimeUnit.HOURS,new ArrayBlockingQueue<>(3));
+                   return javaExecutor;
+            }            
+
+
+           when You create object for ThreadPoolExecutor it is mandatory to mention springboot to use this object like ::
+
+            @Async("plainJavaThreadPoolExecutor")
+
+            Because BY default when Springboot searches for any user defined bean for ThreadPoolTaskExecutor not for ThreadPoolExecutor. so if u don't mention it will again take default  SympleASyncTaskExecutor bean.
+
+
+
+
+
+
+Mostly used in industries 
+Use case -4 :: 
+
+       want to maintain a single executor as a default one wether it might be plain java or springboot's executor , there should be again need to mention it at @Async annotation level , by default springboot should take this task executor .
+
+       Implment AsyncConfigurer interface and override getAsyncExecutor() and return the executor you want to use and just annotate your method with @Async no need to mention bean name if u want plain java thread pool executor .
+
+       but make sure as we are just overiding a method and creating object not giving @Bean annotation method to it , so we manually need to  maintain bean life cycle for that object by maintaining that object in singletonly .
+
+
+
+       syntax ::
+
+              private ThreadPoolTaskExecutor taskExecutor;
+
+              @Override
+              public Executor getAsyncExecutor(){
+                    if (taskExecutor==null){
+                    taskExecutor = new ThreadPoolTaskExecutor();
+                    taskExecutor.setMaxPoolSize(4);
+                    taskExecutor.setCorePoolSize(2);
+                    taskExecutor.setQueueCapacity(3);
+                    taskExecutor.setThreadNamePrefix("MyDefaultThread-");
+                    taskExecutor.initialize();
+                    }
+
+                    return taskExecutor;
+              }
+
+
+
+
+
+
+Question :: 
+
+what are  2 different conditions to work @ASync properly 
+
+(1)if u anotate a method with @Async you should not call that method from the same class itself.
+(2) this method should not be private or protected.
+
+
+Reason :: internally @Async annotation works on AOP Concept so AOP will work on only public methods and while invoking  a method we should invoke it from the same class.
+
+
+How Async and Transactional management works together 
+
+there are 3 use cases ::
+
+ (1) calling a Async Method from a method annotated with Transactional :: 
+
+
+          if  u call any Async method from transactional Method , the trasnaction context will not be transaferred to that method because that method runs in  a separate method. so if any issue came and rollback occurs in main method it will not do roll back in this method.
+
+
+ (2) using Async and Transactional annotation on same method ::
+
+           we can do it and this method will run in a separate method. and also maintain transcation properties for it , such that any issue occurs it roll back the changes.
+
+           but again , it is a different  thread from the method which this method was called so , if that main method is also annotated with transaction then those   trasnaction context will not be inherited here . so do it with precaution.
+           
+
+  (3) calling a transaction method from a method annotated with Async :: 
+
+            This is the better way of doing , so that there will be no transaction context will be lost.
+
+
+
+
+Return type from Async methods :
+
+
+       Don't take directly any retrun type from async method wrap the item into CompletableFuture<T> . so that our main method will not wait for execution of async method  ,our main method will wait only at the time of using that data .
+
+
+       CompletableFuture<Integer> value = user.getUserByUserID(id);
+
+       here u are reading value from async method , here our main method will move one by creating a just reference variable , but it will wait to complete async method while reading the value .
+
+        System.out.println("value is "+value.get());  (here it will wait until async method to complete ).
+
+
+
+handling Exceptions thrown by async methods :: 
+ 
+
+       (1) if that method is not a void return :: 
+
+                       it is a normal case here  the exception thrown by the async method will be caught by main method at thet time of reading data from that async method.
+
+
+       (2) If async method doesnot return anything this exeception will be caught there only and u can write ur custom exception by implementing AsyncUncaughtExceptionHandler and override it's method handleUncaughtException .
+                       
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,204 @@
+
+There is one property in app.prop file we can set this so that we can tell how to create and maintain db schema
+
+spring.jpa.hibernate.ddl-auto=
+
+we ca set 4 values for this property 
+
+      (1) none : Do nothing good for production
+      (2) updte : create a schema , update a schema but not delete the schema 
+      (3) create : drops and re create the schema while application start up
+      (4) create-drop : create the scema while application start up and drop the schema while application shut down.
+
+
+  
+@Table annotation ::
+    
+     This annotation will helps in setting other porperties for this tbale such as name , schema etc...
+
+     (1) name :: By default if we create table (entity) hibernate will treate OrderDetails as table and table name will be order_details as hibernate follows camlecase, but we can manually define table name also with @Table annotation 
+
+
+        eg :: 
+
+              @Entity
+              @Table(name = "order_details_manual")
+              public class OrderDetails{  }
+
+
+      Now table will be created with name order_details_manual
+
+
+    (2) Schema :: we can set to which schema this table belongs , but for that first we have to create a schema by mentioning it at app.prop file while giving data source url.
+
+       eg :: 
+
+            spring.datasource.url =jdbc:h2:mem:sample_db;INIT = CREATE SCHEMA IF NOT EXISTS detailsSchema
+
+
+            @Entity
+            @Table(name = "order_details_manual", schema = "detailsSchema")
+            public class OrderDetails { }
+
+
+            if u don't provide create schema in app.prop file   and u give here schema ="detailsSchema", it will give exception and table will not be created.
+
+
+    (3) Unique Constraint :: 
+
+             we can set unqiue columns by giving their column names here . we can set single unique constraint (single column) and also composite unique constraint (multiple columns).
+
+
+             eg ::
+
+
+               @Entity
+               @Table(name = "order_details_manual", uniqueConstraints = {
+               @UniqueConstraint(name = "compositeConstraint",columnNames = {"email","orderType"})})
+               public class OrderDetails {      }     
+
+
+    (4) Index
+
+              we can set index also  by giving a name for that index and columns on which you want index .same as unique constraint here also we can give single column and also multiple columns.
+
+
+              eg :: 
+
+
+              @Entity
+              @Table(name = "order_details_manual", uniqueConstraints = {
+              @UniqueConstraint(name = "compositeConstraint",columnNames = {"email","orderType"})},indexes = {
+              @Index(name = "tableIndex",columnList = "email,phoneNumber")
+              })
+              public class OrderDetails {  }.
+
+
+
+@Column :: by using @Table annotation we are setting properties at table level, same as by using @Column we can set column level properties like column name , nullabe, length etc... , here this annotation should be given at field level not at class level.
+
+             eg :: 
+
+                  @Column(name = "phoneNo", nullable = false,unique = true,length = 255)
+                  private String phoneNumber;
+
+             Here we are setting column name and nullable false such that we can not give null value for this column and length , and setting as unique. if we want only one unique column in unique constraint  we can give at column level also or at table level also .  
+             
+
+             Note :: we can have multiple unqiue constraints .
+
+
+
+Primary key ::
+  
+          for each table we can have only one primary key, a primary key is set of columns or single column which helps us to identify a row as unique in our table.
+
+
+          if we want only one column in our primary key we can direclty annotate that column with @Id  , so that springboot identifies it as a primary key column , but if we have multiple columns as a primary key we can't directly annotate all columns with @Id .there are 2 ways to define composite primary key for our table .
+
+
+          (1) @Id, @IdClass.
+
+                steps :: 
+
+                     (a) create a class  and it should implement serialazable.
+                     (b) maintain all the fields with same name in our table here also.
+                     (c) override Equals an hascode method and write ur custom logic there.
+                     (d) declare no args constructor
+                     (e) annotate entity class with @IdClass() and give this class as value.
+                     (f) now we can have composite primary key.
+
+
+                 eg ::
+                    
+                    create a class OrderDetailsCk with above rules and provide it in entity class.
+
+
+                    @Entity
+                    @IdClass(OrderDetailsCk.class)
+                    public class OrderDetails { 
+
+                         @Id
+                         private Long id;
+
+
+                         @Id
+                         private String email; 
+
+                         private String phoneNo;      
+                    }
+
+
+                as we store entities in our first level caching or in second leve caching we store them in a hashmap where key is object of primary key, so in order to maintain unique primary key we overrided hasshcode method and override method to check while inserting in hashmap.
+                
+                We implemented serialaizable interface so that in case of distributed caching  if we want to share this cache data over network so that it will erialize this data properly.
+
+
+           (2) @Embeddable ,@EmbaddedId
+           
+                   same as above create a compositekey class but annotate that class with  @Embeddable
+
+
+                   in our entity class create instance of this class and annotate that instance with @EmbaddedId
+
+                   eg ::
+
+                       @Entity
+                       public class OrderDetails { 
+
+                         @EmbaddedId
+                         OrderDetailsCk  orderDetailsCk;
+
+                          private String phoneNo; 
+       
+                    }
+                 
+
+
+                 here we can see we  no need to again declare id and email in our entity class , hibernate automatically considers those fields from composite class and treats as a column in our table.
+
+
+
+              In composite primary key we can't use generated value so don't use them in composite key class , else it will throw error.   
+
+
+
+Generation value ::
+
+                By Default Primary key are not auto increment ,so while inserting a row we need to give value for id also but if we want to automatically assign value for that column we can use @GeneratedValue annotation and we can give which type of increment we want for that column.
+
+
+                (1) Identity 
+
+                    syntax :: 
+
+                             @Id
+                             @GeneratedValue(strategy = GenerationType.IDENTITY)
+                             private Long id;
+
+                    it is like auto increment so if we insert a row no need to give value for column id , it will fetch latest value of id in that table and increent that value with plus 1 and assign that value to column id for this new row.
+                    
+
+
+                (2) Sequence 
+                
+                      syntax :: we will create a sequence and set initial value and also we will set allocation size (i.e normally every time when we insert first we will fetch latest id and add plus 1 to it and insert a new row ) , where as now at a time we will get n no.of next id's at a time so no need to query to db before inserting a new row .
+
+                      best advantage over identity is we can have custom logic like what is starting number and how much it should increment for next value and we can cache at a time next n no of values at a time.
+
+
+                      Syntax :: 
+
+                          @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "uniq_sequence")
+                          @SequenceGenerator(name = "uniq_sequence",sequenceName = "user_details_seq",initialValue = 100, allocationSize = 4)
+                          private Long id;
+
+
+
+                (3)  @Table Generator annoation ::
+
+                         same as seq but here all the seq were stored in a separate table. so everytime when we want latest id for increment we have to fetch from here and after that we have to update here with latest valye . as while updating we will have locks also right so this process will be little slow.
+                         
+                
+
+                 

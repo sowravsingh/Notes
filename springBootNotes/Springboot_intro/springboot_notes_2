@@ -1,0 +1,414 @@
+Dispatcher serlvlet helps to identify which controller will manage the api that was hit 
+
+
+@Controller : it is the annotation that indicates this file will handles all the incomming HTTP requests.
+
+
+@ResponseBody : This is the annotation given to all the methods in controller class , so that we are specifying the return type is a Response to the Incoming HTTP request , If we don't give that annotation that return type will be treated as view and it will search for that servlet.
+
+
+@RestController : it is same as @Controller annotattion but with small minor advantage : 
+                                                                                   No need to Give @ResponseBody annotation to every method in controller class .
+                                                                                                  
+                                                                                   
+@RequestMapping : This annotation helps to map the incomming HTTP Request to a method in controller class. we can use this request mapping annotation to the class also . 
+
+in Requst mapping we need to give url and method (i.e which http method get or post etc..)
+
+By using @GetMapping or @PostMapping annotations we can directly give only url no need to give which method is that incoming http request. 
+
+
+
+@Requestparam : we can send payload or request body  through url itself . as a key value pair
+
+
+          eg  :: https://amozon.in/api/fetchUser?firstName=sowrav&lastName=singh
+
+           here the payload starts from ? and we can send multiple params with & 
+           Now we can manage that payload in our controller class .
+
+         eg ::
+         
+         public String getuserDetals(@RequestParam(name =firstName) String firstName,@RequestParm(value =lastName , required =false) String lastName){
+
+                return "user found with first name "+firstName +"with lastName". 
+         } 
+
+
+         Note :: we can give name or value for the key, by default required is true for every request param , so if you miss any request param to pass it will throw exception so if u want any paramter as optional then make it as required = false in controller.
+
+
+@PathVariable :: helps to extract body from path of the url  
+
+          eg  :: https://amozon.in/api/fetchUser/{id}
+
+          here we pass pathvariable id so it will map in our controller class with using pathVariable
+
+          eg ::
+          
+          public String getuserDetals(@pathVariale(name =id) int  id){
+
+                return "user found with id "+id. 
+         }
+
+
+@RequestBody :: it helps to bind the request body (typically a json) to controller method paramater 
+
+
+ResponseEntity  :: (not an annotation) this is the entire HTTP Response Body containing of headers , response body, http status
+
+                 in controller method  give return type  as ResponseEntity<String> 
+
+
+Bean :: it is a java object , which is managed by IOC container , all the beans are stored in IOC container.
+
+
+@Component :: if we keep this annotattion on any class it means springboot will create  a bean  and it will manage object creation for this class and life cycle of that object .
+
+not only @Component , even @Controller or @Service also internally use @Component annotation so they also tell springboot to creat bean of those classes and manage its lifecycle.
+
+
+Draw backs ::
+     Generally while creating a bean for a class having @Component it will create object for that class with the default constructor , but if that class have any custom constructor then application will fail to start as it is unable to create bean for that class as it doesnot know what to pass parameters to that parameterized constructor for creating object .
+    
+    this problem was solved by @Bean annotation (placed on a method).
+
+
+@Configuraion :: this annotattion tells springboot that please scan this class also as here we have some bean methods so that create beans for them also . 
+
+
+Now in any configuration class write a methd with @Bean annotation above it and return object for that class with some default parameters
+
+    eg ::
+
+    @Bean
+    public User returnUserObject(){
+         return new User("firstName","lastName");
+    } 
+
+
+if you have curtomized bean and also @Component springboot will take our customized bean only to create bean for that class as java supports conevntion over configuration.
+
+
+
+@ComponentScan :: this annotation basically placed in main springboot application class and tells what are all the packages that springboot should scan or search for the classes that it should create beans (i.e it will scan all the classes havving @Component , @Controller,@Service ,@Repository anotated classes and also @configuration anotatted class to create beans )
+
+   e.g::
+    @ComponentScan(basePackages ="com.vassar.api")
+
+
+Note :: if u don't provide any packages to scan  (i.e didnot give @ComponentScan anotattion springboot default scans the package in which main springboot application was there).
+
+
+
+when the beans get created  :: 
+              generally while starting the applications springboot creates the beans for all those required classes , but if we give @Lazy annotation to any class then bean will not create while application started it will create only when it was required.
+
+
+
+
+
+Life cycle of Bean  ::
+
+
+Application start  ----> invoke IOC COntainer  ----> construct Bean  -----> Inject Dependency in constructed Bean   -----> @PostConstrcut   -----> use the bean  ----->  @PreDestroy  -------> Desroy bean
+
+
+
+(1) start the application 
+
+(2) invoke the ioc container and scan all the packages to identify the class that beans need to create for them.
+
+(3) construct the bean for each class.
+
+(4) inject any dependency needed for that class while creating a bean (i.e  if it requires dependency of another class) then to do the DI for it 
+
+(5) after creating a bean if you want to perform any task write that piece of code in a method inside that class anotate that method with @Postcontruct
+
+(6) use the constructed bean in your business logic
+
+(7) while destroying the bean (typically while application stops it will destroy those beans) ,if you want to perform any task write that piece of code in a method inside that class anotate that method with @PreDestroy.
+
+(8) Bean was destroyed.
+
+
+
+
+
+
+dependency Injection is of 3 types  ::
+
+(1) field Injection.
+
+Injecting dependency into a field directly  
+
+eg ::
+
+ @Autowired
+ private Address address;
+
+disadvantages : we can't mae that field as final .
+
+
+
+
+(2) setter injection.
+
+Injecting dependency to field not directly but through a setter injection
+
+eg ::
+
+    private Address address;
+
+    @Autowired
+    public void setAddress(Address address){
+        this.address=address;
+    }
+
+
+ disadvantages :
+ we can't make that adress field as final 
+ we have to search for the setter method and make sure it was anotated with autowired so that instance will be created.   
+
+
+(3) constructor injection.
+
+injecting dependencies at constructor level only 
+eg  ::
+
+    private Address address;
+
+    public User(Address address){
+        this.address=address;
+        System.out.println("creating user bean");
+    }
+
+
+    Note : as we have only one constructor here so no need to anotate it with autowired because any how that constructor will be called while creating object of user class, so at a time all the dependencies will be ressolved at constructor level only.
+    if we have multiple constructor then we have to anotate this method with autowired.
+
+
+disadvantages of DI ::
+
+(1) ciruclar Dependency
+
+    This is like a dead lock situation 
+     user class has dependency on address class so spring will try to create object of address class but inside address class it has dependency with user class . now spring cant create object of address as user object is not ready.
+
+
+     how to ressolve ::
+
+     (a) try to refractor code as both are dependent on each other that means there is a code that is commonly using place that code in a separate class.
+     (b) use lazy upon autowired on any of them so that object will be created
+     (c) remove autowired annotation on any of them and set the object to it with a setter method and anotate that setter method with @postConstruct.   
+
+
+(2) Unsatisfied Dependency 
+
+     suppose Addres class is interface and it is implemented by OnlineAddress and offlineAddress.
+
+     while creating bean for address with 
+
+    @Autowired
+    private Address address;
+    spring doesnot know which lass it should use among OnlineAddress and offlineAddress. so application failed to start.
+
+    how to ressolve ::
+
+    (a) using @Primary annotation
+        annotate any of the  OnlineAddress or offlineAddress class with @primary so that if two beans are of same type then spring will consider the bean which is annotated with @primary 
+
+     (b) using @Qualifier
+           give name to both classes with some string ,while creating object of Database  use qualifier annotation  and give the name of the class u want to use.
+     
+
+         eg ::
+          @Component("mySqlDatabase")
+          public class MySqlDatabase implements Database {
+                             // MySQL-specific implementation
+            }
+
+        
+          @Component("postgresDatabase")
+         public class PostgresDatabase implements Database {
+                       // PostgreSQL-specific implementation
+            }   
+
+
+           @Autowired
+           @Qualifier("postgresDatabase")  // Refers to the PostgresDatabase bean
+           private Database database;
+
+
+
+      if you dont' want directly hard code which object should consider take some boolean from application.properties or from yml file and create bean for it :
+      eg ::
+
+       @Bean
+        public Order getOrderObject(@Value("${isOnlineOrder}") boolean isOnlineOrder){
+        if (isOnlineOrder){
+            return  new OnlineOrders();
+        }else {
+            return  new OfflineOrders();
+        }
+      }     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Scope :: In springboot we have different scopes i.e it specifies us when to create the object of a class.
+
+use @Scope annotation and give the type of scope you want to give to any class.
+
+
+scopes are 4 types
+
+  (1) singleton
+     it is eagerly initialzed
+
+    it is normal scope i.e object will be created once at starting of springboot application and the same object is used across the application.
+    if u don't mention any scope default scope is singleton only .
+
+
+  syntax ::
+   @Scope(value = ConfigurableBeanFactory.SCOPE_SINGLETON)   or    @Scope(value = "singleton")
+  
+
+  (2)prototype
+       it is lazily initaialized 
+       if you give scope as prototype that is object will be created only when it was required (i.e only while any other class has dependency on it). and every time a new object was created . 
+       same object was not shared to all other classes . every time some class has dependency so then new object of this class was created and shared to the required class for its object creation
+
+    Syntax :: 
+      @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)   or @Scope(value ="prototype")
+
+
+
+   (3) request 
+         it is lazily initalized 
+
+         a new object will be created for this class at every http request.
+         the first time object initialization will be done only at time of first http request.
+
+      Syntax ::
+         @Scope(value = WebApplicationContext.SCOPE_REQUEST,proxyMode = ScopedProxyMode.TARGET_CLASS)   
+
+
+         we need to give proxymode value also for request scope classes becoz if any singleton scope class has dependency with this class then spring wil thorugh error as unable solve dependencies of that class (as object for this class will be cretaed when any api was hit). so if we give proxy value also then until the object for this class was created a proxy or dummy object will be created and served as object for all the class that have dependency on this class.
+
+    (4) session 
+          it is lazily initialized 
+
+          same as request but new object creation will take place for every new http session 
+
+
+
+one more scope is there it is application it is also like a singleton . but here same object is being used across all IOC containers.
+
+
+
+
+
+@ConditionalOnProperty
+
+Using this annotation we can control the bean creation of a particular class . i.e if you don't want to creat bean of that class at some time we can cntrol it with this annotation . read some value (mostly boolean ) from application.properties . from there u decide to create bean or not 
+
+
+eg ::
+
+    @Bean
+    @ConditionalOnProperty(name = "app.createObject" , havingValue = "true",matchIfMissing = false)
+    public MySqlConnection getMySQlConnection(){
+        return new MySqlConnection();
+    }
+
+    in application.properties give ::
+    app.createObject=true
+
+ name is used as key that was present in application.properties
+ havingValue here we give what should be the value we want match it with app.prop value, 
+ matchIfMissing :: if we don't give key value in app.prop file , still do we need to create that object or not  (true or false)
+
+
+
+
+
+Advantages ::
+
+saves memeory as we don't need to create unnecassary beans .
+
+disadvantages ::
+ lots of cinfusion in configuration. 
+
+
+
+Profiling ::
+
+In general we will be having different configurations for different environments ,
+for eg :: db credentials  of our local and in prod might not same , also file paths might be diff from our local and in prod.
+
+so we can maintain separate configurations for our local and for prod,  i.e maintain separate  application.properties files (application-dev.properties , application-qa.properties , ...etc)
+
+and we can define which profile is active in main or default application.properties file.
+
+eg :: spring.profiles.active=dev
+
+so , from now if u want to fetch any value from app.prop file . it first search in current active profile's app.prop file (applicationd-dev.properties). if it was not present in that file then it will search in default file , (as sb suuports convention over configuration).
+
+we can give multiple profiles as active like ::
+
+
+eg :: spring.profiles.active=dev,qa
+
+two profiles will be active but while reading value from properties file first it will read from qa properties file .
+
+
+
+we can set profiles active by changing the value spring.profiles.active value in application properties file manually 
+
+
+we can do it dynamically also i.e we can set profile active in different ways not only in properties file 
+
+(1) give manually in run command 
+
+    eg  :: java -jar your-application.jar --spring.profiles.active=dev
+
+(2) giving in pom.xml    
+ 
+    eg ::
+
+          <profile>
+             <id>prod</id>
+              <properties>
+              <spring.profiles.active>prod</spring.profiles.active>
+              </properties>
+         </profile>
+
+
+
+springboot prioritise by activating profile in jar running command than the profile mentioned in application.properties file.
+
+
+
+@Profile ::
+
+Using this annotation we can control the bean creation for a particular environments only.
+
+for eg ::
+         @Component
+         @Profile("dev")
+         public class User {
+    
+         }
+
+ we can give multiple profiles also like @Profile({"dev","qa"})        

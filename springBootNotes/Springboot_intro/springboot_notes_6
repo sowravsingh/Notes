@@ -1,0 +1,128 @@
+
+
+                                                                                      Serialization and Deserialization
+
+ Serialization : it is a process of converting a object into a json string.
+ 
+
+  We can do it by Jackson's ObjectMapper or Google JSon's Gson.
+
+
+  for eg :: 
+           
+            ObjectMapper objectMapper = new ObjectMapper();
+            String JsonString = objectMapper.writeValueAsString(cropData);                                                                                      
+
+
+Deserialzation : it is a process of converting a json string to a object 
+
+
+   for eg :: 
+
+            String jsonObject ="{\"cropId\":12,\"sn\":\"pd\"}";
+           CropData cropData = objectMapper.readValue(jsonObject,CropData.class);            
+
+
+
+ same we can do 2 process by creating Gson object and using fromjson , toJson methods.
+
+
+ To use Gson methods for serialization and deserialization we need to import Google json Dependency where as jackson library is present inside springboot.
+
+
+ @JsonProperty ::
+
+                 this annotation is used While serialization or  deserialization process . these are used to map json properties to java objects fields.
+
+                 @JsonProperty("cn")
+                 String cropName;
+
+                 we can use cn or cropName as that field's name in json it will map to cropName field . 
+
+
+
+Same we can do by using Gson also but we need to use annotation  @SerializedName  annotation.
+
+
+
+
+
+                                                                                        Logging .
+
+
+We put Log statements to debug more if there was any error in our code 
+
+We can put print statements also but with logs we will get some beneifits like ::
+      
+       along with the print statement we will get some additional ifno like time stamp , and from which class  the log is coming and also severity of log (by using log levels) 
+
+
+
+we have different frameworks  for logging like (log4J2 and logback) , by default logback is used .
+
+
+We have different logging levels by  which user might understand the severity of logs 
+       
+
+          Fatal    - High
+          Error    - High
+          Warn     - medum
+          Info     - Normal
+          Debug    - Normal
+          Trace    - Normal
+
+
+
+ Create a log statement :: 
+ 
+         Step -1  :: get logger for that class using slf4j (which was implementation of logback).
+           
+                
+                eg ::
+                   Logger logger = LoggerFactory.getLogger(CropService.class);    
+
+
+         Step -2 :: write ur pring statements with using logger created in above step .
+
+                Eg :: 
+
+                    logger.info("Inside getCropData method ");    
+
+
+        logger  statement will be like  ::                       
+                   
+                    2024-11-16 12:12:59.584  INFO 45333 --- [nio-8080-exec-2] com.spring.serivces.CropService          : Inside getCropData method 
+
+                    
+                    here 45333 is process id of 8080 port 
+
+       
+
+   use cas -2  :: using Slf4j annotation (add dependencay of lombok in pom for this annotation)
+            
+                steps :: 
+
+                     Annotate ur method with @slf4j 
+
+                     No need to create extra logger factory
+                     direct we can write 
+                     log.info or log. warn etc...
+
+
+
+
+By default debug and trace statements are not visible in console , but we have to enable them in properties file with command  :: 
+
+                     logging.level.root = warn
+
+
+                     what ever level we are giving from that level to upper level logs only visible so to enable trace logs also then give 
+
+                     logging.level.root = trace.
+
+                     so all the logs with trace and above levels will be visible .
+
+                     
+         
+
+

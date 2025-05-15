@@ -1,0 +1,465 @@
+                                                                   AOP (Aspect oriented Programming)
+
+AOP is programming pradigm that was used by springboot to maintain the code modularity .
+
+for example we have some peice of common code (like logging some thing or transactional activity) that needs to be used at many methods in our project.
+
+AOP helps in maintaining code reusability.
+
+generally what we do for this  :: 
+
+(1) either write that peice of common code in every method where it was required
+
+(2) or write that common code at one place and call that method every time in our business logic where we reuired.
+
+
+But using Spring AOP we need not to call that common method in every business logic methods . just give some pointcut expresion to that common code (like where to apply this code  and when to apply). spring will automatically use this common code across the provided class methods.
+
+
+steps ::
+
+(1) create some class and anotate it with @Aspect (so that spring boot will understand to read all those methods inside it)
+(2) write some methods an give them point cut expressions like where to apply and when to apply 
+
+
+when to apply ::  
+
+** we can apply that common piece of code to our any required methods in 3 ways 
+   (1) @Before  ---> i.e print some log before invoking the actual method.
+   (2) @After   ---> i.e print some logs after completion of actual method execution.
+   (3) @Around  ---> i.e do some thing before invokation of the method and complete the method execution and do some thing after the method executions completes.
+
+
+
+sanple eg :: 
+
+    
+    @Before("execution(void com.spring.controllers.DemoController2.getUSerByID())")
+    public void BeforeMethod(){
+        System.out.println(" AOP Before methode was called");
+    }
+
+
+     we have 2 parts here one is point cut expression and advice 
+
+
+
+
+    here the method is a advice 
+    @Before  tells us to execute before invoking the method 
+    and the text after @Before is a pointcut expression (which tells us to identify the methods on which we have to use this advice)
+
+
+    there are different types of pointcuts ::
+
+
+    (1)  Execution :: It matches a particular method in a class i.e we have to give expression upto method level 
+
+               e.g  --> execution(public void com.spring.controllers.DemoController2.getUSerByID())
+                                    
+
+                 This try to mactch a method getUserByID that returns nothing and accepts nothing
+
+
+            Wild Cards ::
+               
+               (a)  *  --> this matches to any single item 
+
+               e.g  :: execution(* com.spring.controllers.DemoController2.*(*)
+
+                      This tries to match all the methods in DemoController2 class that returns any thing and accepts any single parameter.
+
+               (b)  ..  --> this matches to 0 or more than 0 items 
+
+               e.g   :: execution(* com.spring.controllers.DemoController2.*(..)
+
+                        this tries to match all methods in DemoController2 that will accept paramater or does not accept any paramters
+
+
+
+        Note :: exeution expression should be given upto method level 
+        
+
+
+    (2) within  :: it matches all the methods in a class (i.e we have to give expression upto class level)
+
+                  e.g ---> @Before("within(com.spring.controllers.DemoController2)")
+
+                  it matches with all the methods in that given class .
+
+
+                    @Before("within(com.spring.controllers.*)")
+                   it macthes all the methods in all the classes undes contrllers package 
+
+
+
+    (3)  @within  :: it mataches all the methods in all the classes that are annotated with given annotation in point cut expression 
+    
+                    e.g ------>   @Before("@within(org.springframework.web.bind.annotation.RestController)")
+
+                    all the classes that are annotated with @Restcontroller               
+    
+
+    (4)  @annotation :: it matches to all the methods in any class in project that are annotated with the give annotation in expression 
+
+                   e.g  -->     @Before("@annotation(org.springframework.web.bind.annotation.GetMapping)")
+
+                      matches all the methods anntated with @GetMapping.
+
+
+    (5) args :: it matches to any method that accepts same type of paramaters provided in expression
+                  e.g  -->  @Before("args(String,int)")                  
+
+                          Matches all the methods that accepts string and int as parameters 
+
+
+               Note :: not only primitive data types we can give objects also but with their exact class path
+               
+
+    (6) @args :: it matches with any method that accepts a parameter and that parameter's class is annoatated with give annotation 
+    
+                  e.g   --->  @Before("@args(org.springframework.stereotype.Service)") 
+
+
+    (7) target :: it matches for all the methods of a given object in expression (i.e whenever that object's method was called this advice will get applied)                                   
+
+                  e.g  ---->  e.g   --->  @Before("target(com.spring.serives.User)")
+
+
+
+
+
+we can join 2 or more expressions also for a single advice  
+
+          e.g  -->  @Before("@within(org.springframework.web.bind.annotation.RestController) && within(com.spring.controllers.DemoController2)")
+
+
+
+
+
+Named Point cut :: suppose we have to use same expression at multiple advices no need to write every time write expression with @Pointcut()  and give a methodname now call just that method name wherever u want that expression.
+
+
+Note :: Don't write anything inside that method just use that metod name as that point cut reference at multiple advices.
+
+
+
+
+
+@Around ::   before pointut expression if we give @Before it tells to execute the advice snd then invoke the method
+              same as if we give @After it first invokes the method and then execute the advice .
+             now Around is advice will be called and inside the advice we have to call the method (manually) .
+             
+
+             e.g  :  --->   
+
+             @Around("within(com.spring.controllers.*)")
+             public void AroundWithinMethod(ProceedingJoinPoint joinPoint) throws Throwable {
+                    System.out.println(" AOP around  within methode was called");
+                    joinPoint.proceed();
+                    System.out.println(" AOP around within method was finished");
+             }
+
+
+
+          
+
+ How Internally AOP works 
+ 
+
+ Application starts   ------->
+                        it Looks for @Aspect Annoatated classes
+                        parse all the point cut expressions in those cllases and store them in a Data structure in cache for easy accessability
+                        looks for all the @component ,@services etcc.... anotated classes 
+                        identifies whthere those classes are elgible for interception based on point cut expressions
+                        if yes it will crreate a proxy classes for all those classes using  JDK Dynamic proxy or CGLIB 
+
+
+    To create proxy of a class
+    JDK Dynamic proxy
+    CGLIB
+
+
+
+
+
+@Transactional ::
+                  This annotation is used to manage transacrions in Spring boot.
+
+
+Transaction flow  ::  create Transaction  -->  Run your business Logic  ---> Commit transaction
+                                                         
+
+                                                         (if any exception occured Rollback the transaction)
+
+@Transactional annotation can be given at class level or at method level  , if u give at class level then it is applicable to all public methods and if u give at method level it  is applicable to that particular method.                                                         
+
+
+               Internally Transaction management uses Spring AOP
+
+               internally springboot has a point cut expresion like (match with all the methods or classes annotated with @Trnasaction). and run with  advice Around the business method.
+               Here the advice will be like : begin the trnsaction , invoke the original business logic  (or run the actual method ), if everythig is fine commit the transaction else rollback the transaction.
+
+
+
+
+
+ hierarchy of Transaction Management   ::
+
+
+         TransactionManager (empty Interface) ----> PlatformTrnasctionManager (Interfsce with getTransaction ,commit , rollBack methods) -------->AbstarctTransactionManager (Abstract class that provides default implementations for 3 methods )-----------> again this  this  Abstract class was inherited  by 4 different  transaction managers and each of them again overided those 3 methods in their classses and done some custom chnages ::
+
+                           (1) DataSourceTransactionManager 
+                           (2) HibernateTransactionManager
+                           (3) JPATransactionManager
+                           (4) JTATransactionManager 
+
+             Basically all these 4 transaction managers helps us to communicate with db and manage the transactions.              
+
+
+         If u give @Transactional to any method internally springboot uses the methods in PlatformTrnasctionManager interface to manage transaction activities (like begin , rollback ,commit), By default springboot uses JPATransactionManager . but if u want springboot to use different transaction managers also we can  do it by creating object for PlatformTrnasctionManager with any transactionmanager you want pass it to @Transactional annotation .
+
+          eg :: @Transactional(transactionManager = "getUserSpecificTransactionManager")
+
+          created bean for platfromTransactionManager in configuration file  and giving object otransactionManager with jdbctransaction manager.
+
+          @Bean
+          public PlatformTransactionManager getUserSpecificTransactionManager(DataSource dataSource){
+                     return  new DataSourceTransactionManager(dataSource);
+           } 
+
+
+
+
+As of now we maintained transcations in declarative method (i.e we just gave transactional annotation and told with transaction manager to use springboot take care of transaction things ), we can do programatically also like we only call begin transaction and start our business logic and any exception roll back the activity else commit the activity (no need to give @Transactional annotation).
+
+
+there are 2 approaches we can manage transactions programatically :: 
+
+Approach 1 ::
+     
+        steps  ::
+              (1) create platformTransactionManager with any of the 4 transaction managers.
+
+                 As we already created bean in config file in above scenario just autowire it in ur service file  
+
+                 @Autowired
+                 private PlatformTransactionManager userPlatformTransactionManager;
+
+              (2) in ur code call all the thre methods in transaction manager objects manually. 
+
+
+                  public void getUerDetailsByNameId(String name , int id){
+                       TransactionStatus status= userPlatformTransactionManager.getTransaction(null);
+                       
+                       try{
+                             System.out.println(" fetching db data");
+                       }catch (Exception e){
+                       userPlatformTransactionManager.rollback(status);
+                       }
+                      
+                      userPlatformTransactionManager.commit(status);
+                }
+
+
+
+
+In the approach 1 u only manually calling the 3 methods there is other method where we create Transactiontemplate it will take care of calling those methods u just pass ur business logic as a function to that template.
+
+
+Approach 2 ::
+     
+          Steps ::
+
+               (1) create TransactionTemplate by giving  transactionManager object to it  and autowire it in ue service file .
+
+                   @Bean
+                   public TransactionTemplate getTransactionTemplateBean(PlatformTransactionManager platformTransactionManager){
+                              return  new TransactionTemplate(platformTransactionManager);
+                   }
+
+
+               (2) create TransactionCallBack object . implement TrnasactionCallBack interface (as it is functional interface do it's implmentation by using lambda expression and write ur business logic there )
+
+
+                 TransactionCallback<TransactionStatus> callback = (TransactionStatus status) ->{
+                                                             System.out.println(" running business logic");
+                                                             return status;
+                                                             };
+
+               (3) call execute method in transactionTemplateobject and pass call back object to it , so that template will take care of transaction management.
+
+
+                    transactionTemplate.execute(callback);
+
+
+                        
+
+ 
+    Advantage :: it is flexible becoz some times we don't require to hold the db connection for the entire business logic only while performing db activities then only we need this transactional usecase.
+
+    Disadvantage :: difficult to manage as we write same code at many places in our code. 
+
+
+
+
+
+propagation ::
+              This is helpful in Trnasaction management while creating a new transaction . springboot checks propagationvalue while creating a new transaction. it is helpful to us if we have a method annotated with @Transaction and inside it is calling another method and it is also annotated with @Transaction so now here we have a question to create a new transaction or use the parent transaction itself. to decide it springboot uses propagation value set to it. 
+
+    There are different types of Propagations 
+
+    
+    (1) Required (by default if u don't give any transaction springboot considers it )
+
+        syntax :: @Transactional(propagation = Propagation.REQUIRED)
+
+               if (parent transaction is present){
+
+                    use the same transaction don't create a new one.
+                }else{
+
+                     create a new transaction.
+                }
+
+
+    (2) Required new
+
+        syntax :: @Transactional(propagation = Propagation.REQUIRED_NEW)
+
+               if (parent transaction is present){
+
+                    suspend the parent transaction and always create a new transaction , once after completing new transaction resume the parent transaction.
+                }else{
+
+                     create a new transaction.
+                }
+
+
+
+
+    (3) Supports 
+
+        syntax :: @Transactional(propagation = Propagation.SUPPORTS)
+
+               if (parent transaction is present){
+                     use the same transaction
+                    
+                }else{
+
+                     run the method without any transaction.
+                }
+
+
+    (4) NOT_SUPPORTED 
+
+        syntax :: @Transactional(propagation = Propagation.NOT_SUPPORTED)
+
+               if (parent transaction is present){
+                    suspend the parent transaction and run this method without any transaction. once completed resume again parent transaction. 
+                    
+                }else{
+
+                     run the method without any transaction.
+                }
+
+
+     (5) Mandatory 
+
+        syntax :: @Transactional(propagation = Propagation.MANDATORY)
+
+               if (parent transaction is present){
+                   run with parent transaction. 
+                    
+                }else{
+
+                     throw exception
+                }
+
+
+
+     (6)) Never 
+
+        syntax :: @Transactional(propagation = Propagation.MANDATORY)
+
+               if (parent transaction is present){
+                   throw exception
+                    
+                }else{
+
+                     run method without any transaction.
+                }                                  
+
+
+
+
+
+
+Concurrent Transactions  ::
+                            It is a situation where multiple transasctions run at a time and potentially tries to acces same data. 
+
+There are few Problems with concurrent transactions . they are ::
+
+         (1) Dirty Read :: while transactions are running concurrrently one transaction may ready uncomitted data of another transaction, but later if that uncomitted data was rolled back then data that was already read by first transcation will remain as dirty read.
+
+
+         (2) Non-Repeatatable Read :: If a transaction is reading same row multiple times in it's entire transaction , sometime there is no guarantee that same value will get from that row evry time becoz as we are running multiple transactions concurrently other transaction might update that row so will get different value. 
+
+         (3) Phantom Read :: If a transaction execute a query and reads some number of rows will be get read , and after some time if the same transaction execute the same query but this time there is no gurantee that same number of rows get read becoz might other transaction delete a row or insert a new row.
+
+
+
+Db Lock types ::
+
+Generally transactions will put lock on any particular data while they are doing their activity (i.e either reading the data or editing the data ).
+
+There are 2 types of Lock 
+
+         (1) Shared Lock (s) :: if a trnasaction 1 wants to read some data it will put shared lock on that data so that if any other transaction wants to read same data they can also put shared lock simultaneously on that data , but if once if shared lock was put an data no other transaction can put exclusive lock on it (i.e no other transation can modify the data ).
+
+         (2) Exclusive Lock (X) :: if a trnasaction 1 wants to modify   data it will put Exclusive lock on that data so that not other transaction can put either shared lock or Exclusive lock i.e if a transaction is modifying a data no other transaction can read that data or modify that data.
+
+
+Disadvantages  :: More the locks you put more the concurrency will decrease for trsnactaions which results in slow process.
+
+
+
+Isolation Level ::    it is a property that belongs to  a transaction which defines that transaction how to behave in presence of concurrent trnsactions with the help of lockings to manage the above  3 problems that will come during  concurrent trnsactions.
+
+There are 4 different isolation levels ::
+
+(1) Read_Uncommitted ::  it will not acquire any lock while reading or modifying the data , so that it will not solve any of the 3 problems . but still this property will be used in some applications with a usecase of u have to only readig purpose  for entire application. As we are not applying any lock if we use this property concurrency will be very high,
+
+  
+Does not solve any problem . 
+
+Note :: it is not recommended to use this if u are modifying the data also becoz data inconsistency will happen .
+
+(2) Read_Committed :: It will read only committed code as it acquire shared lock while reading the data , so that by using this property Dirty Read problem will be solved , but remaining 2 problems remains the same , because it will release the shared lock once it fetched the data it wants , but in same transaction if it wants to execute the query again but this there might change in the data if some other transaction modify the data.
+
+          If it want to modify the data it will acquire  exclusive lock and it will be released only once entire transaction was completed.
+ 
+solve Dirty Read problem but non-Repeatable read and phantom read problems remains same.
+
+
+(3) Repeatative Read ::  here once shared lock was acquired for reading the data it will not release the lock until entire transaction was end . so that no other transaction can edit those data until this shared lock was released . this lead to solve non-repeatatuve read problem as how many times we try get a row value it will remains unchanged .
+
+but phanton read problem will not get solved. becoz other transaction cannot edit the data that was locked by this transaction where as other transaction can insert a new row , so if u are reading some range query data now a new row can come some times .
+
+
+
+(4) Serializable :: same as repeatative read but here while reading it will acquire range lock (i.e it will apply lock on all the rows that are comes under your query range .even if they are not present also ). so another transaction can not insert a new row that comes under this range as it was alrady locked.
+
+As serialazible is solving all the problems here concurency will be very low . other transactions should wait until lock was removed.
+
+
+
+
+
+
+
+
+
+
+
+
