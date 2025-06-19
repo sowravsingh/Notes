@@ -1,0 +1,234 @@
+  
+                                  Open Authorisation (OAuth 2.0)
+                                  
+                                   
+* It is a authorization framework
+* Enables a secure third party access to user protected data.
+
+in instagram we can see sign in with gmail so if we clik on it we will directly login into instagram and username and other details were fecthed automatically . because here gmail is authorizing those third party applications an gives our data like (username , password)  securly to that application.
+
+
+ there 4 differen roles in this OAuth method :: 
+ 
+  (1) Resource owner :: person who has gmail account is resource owner.
+  (2) client         :: who initiates the request of authorizing a user eg : facebbok, instagram
+  (3) Authorization server  ::gmail because it authorizes an incoming request from a client .
+  (4) resource hosting server :: the server which hosts the data of a resource , (gmail).
+  
+
+
+ there are different mechanism to get acess token of a user which is further used to get data from any api. among them Authorization code grant is more commonly used.
+ 
+ 
+ flow for Authorization code grant :: 
+ 
+      consider a scenario where you want to login to instagram and u had already logged in to gmail where u have all the data incuding name , address etc.
+      
+      very first not only instargram if any app wants to use this OAuth mechanism (i.e if it is displaying gmail icon to login it needs to first register with gmail. once after instagram has registered with gmail it will receive 2 keys (client id , client secret).
+      
+     (1) when you hits signin with gmail in instagram it redirects to authorizationn server (gmail). if you were not signed in gmail it asks to enter gmail and passsword and then it will ask consent to us (like you were giving access to instagram to fetch your details).
+     (2) after we provide the consent authorizationserver will give a authorizzation code to client .
+     (3) now client will make one more call to auth server with this code and it will recieve access token and refresh token (which is used to generate a new access token if it is expired).
+     (4) one client has access token it will make request to resource server (here gmail only) to fetch user specific data .
+     (5) resource server validates that token with auth server if it is valid then it will give user data if not it will give 401 errror.
+     
+     
+     
+
+
+ regsitration process ::
+ 
+      * instagram will ned to hit an api "/register" to regiseter itself in gmail . there it needs to pass client name and minimum 3 rediect urls to which auth server (gmail) needs to redirect an user after giving consent.
+      
+      * after registering in response client will get client id and client secret which will use in further.  
+      
+ 
+ detailed api of authorizing an user ::
+ 
+    * whenever we hit sign in with gmail then instagram hits an api "/authorize" and passes the following params 
+           (1) provide client id 
+           (2) response type (as we required auth code we need to pass "code" here)  
+           (3) redirection url (optional if u don't give it picks any url from list of urls we provided at registration time. but if we give any url in this api it should be contained in that registration url list  
+           (4) scope (it will mention what kind of data required for an user )  
+           (5) state (it is a rndom string which is used to prevent csrf attacks     
+           
+     * once this api was hit if user gives consent then gmail redirects automatically to url that we mentiond and also gives authorization code which is further helpful to fetch access token.
+     
+     
+     
+     
+ Need of state in /authorize api :: 
+ 
+    as while client hitting /authorize api it is sending state which is a random string and in response also we are recieving that same  string . this scope is not mandatory to send via request but it is recommended to send because it prevents csrf attacks .
+    
+    
+     lets consider an situation without sending state in payload :: 
+      
+                  * attacker made /authorize request and recieved an authorizatio code for his google account which is used to login to any third party app . bu he didn't used that code to fetch token , he kept it aside.
+                  * now if you try to login to the same app via gmail as we know it internally calls "/authorize" api and this time hacker placed his code in repsonse and as soon as that app recieved code it fetches token for that code , when it try to fetch any details of myne from gmail it will fetch hackers details .
+                  * so if you upload any file to google drive through that app it will upload in hackers google account .  
+                  
+     if we send state in payload :: 
+     
+                * now also attacker might intercept the request and place it's code and any random string value to status , so after recieving code client verifies the state it passed through payload and state it recieved from server, if they didn't match it will not let further login .
+                
+                
+                
+ fetching token from authorization code :: 
+ 
+     to fetch access token for a grant type (authorization code), authorizaion code , client will hit an api "/token" where it will pass auth token, client id , client secret, redirect url .
+      in response it  will give access token, refresh token , expiry time.  
+      
+      
+ whenever token got expres client hits same api ("/token") but this time set grant type as refresh token and pass refresh token and rest  payload remains same now client will recieve a fresh access token.
+ 
+ 
+ 
+ different type of grant types ::
+ 
+                                             
+ (1) implcit grant :: 
+ 
+     it is unlike authorization code grant where it is 2 steps : first fetch auth code and then fecth token . but here it is one step in "/authorize" itself client will get access token.
+     
+     in "/authorize" api payload we gave response type as code but now we need to pass as "token" and we will directly fetch token direclty in this api.
+                
+     and we will not get any refrsh token in this flow .so, whenever token got expired hit again "/authorize" again and get new access token.            
+                 
+  (2) Resource owner password credential grant ::                                 
+   
+         here also one step that too only "/token" api , here we will pass grant type as "password" and give username , password , scope and remaining data  in payload so no need of code direclty we will get acess token, refresh token.
+         
+         for fetching access token whenever it is expired flow will be same as authorization code type grant .
+         
+         
+  (3)  client credentials  grant :: 
+  
+         this is used when client and resource owner is same so here also we can directly call "/token" with grant type as client credentials ,scope. in response we will get access token and expiry time and no need of refrsh token whenever access token was expired we can call this api we will get fresh access token. 
+         
+         
+         
+         
+Open Id Connect (OIDC) ::
+
+    * oauth is used for authorization where are as oidc is for authentication.   
+    
+    * unlike oauth , oidc is used to verify identity of user . in oauth we will get token which is further used to call resource server and get user's data where as in oidc also we will get token (id token) similar to jwt but this token  contains all limited info of user which is required for authentication . as this token is related to that third party app this is not understandable by resource server and we can't get all the details of user with that token.
+
+   * but still that id token conatains jwt token also . so if we want any extra info of user we can extract that access token from id-token and can make request to resource server for extra info.
+   
+   
+   
+  Implementation of OAUTH 
+  
+  * we required client , third party app , resource server , authorization server
+  
+  here client is a user and thrid party app is our springboot applucation . Gitlab and Autho are our auth servers . we can have gmail also.
+  
+      * login to gitlab and create an application with name and redirect uri as http://localhost:8080/login/oauth2/code/gitlab
+       
+       so after registration u will get client id and client secret which were further used.
+  
+           client id for gitlab :: 2c46e63404385bf3a3b6800553c625f21ef749d53130d78de50f6019f61ab381
+           client secret for gitlab :: gloas-c931ecf7c6a15306466108173d2234a65c4e37f3fa0f019545049e12c7d090a4   
+           
+       * do the same in auth0 also ,create  application and we will get there also client id and client secret
+       
+          client id for auth0 :: sAsnjbuCWd2TCJAfrUP4zAt5dbgz8ASP
+          client secret for auth0 :: 2o3vj9b16SHiQQq-Gq7DkwPiU9FbXz9GF63akNtYPZzK_KzEk-DONYebAX1BNv8a
+          
+     * so now whenever user try to login in to our aplication we are giving user to sign in via gitlab or auth0 if they have accout there.
+     
+     
+ * add oauth dependency in pom.xml
+ * add all the config in app.properties files seprately for gitlab and auth0 like mention cleint id , client secret , redirect urls, redirect urls for tokens and other details .
+ * create a custom security filter chain object in security config same as jwt or form based and set configurations.
+      
+      eg  ::  
+              @Bean
+              public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+                           http.authorizeHttpRequests(auth -> auth
+                                  .anyRequest().authenticated())
+                                  .csrf(csrf -> csrf.disable())
+                                  .oauth2Login(Customizer.withDefaults());
+
+                  return http.build();
+              }
+         
+         
+   Now start the application and hit any default api it automatically routes to login and gives option of login via gitlab or auth0 , we can login and access  all the apis in our application.
+   
+   
+   now everything fine in browser if we hit again same business api through postman it will again asks us to login . because by default springboot creates a session for oauth logins also . so we require session id if we hit any api through postman .
+   
+   
+   
+
+
+till now we just added deppendency in pom.xml, addded config in app.properties file and created a new custom security filter chain . what ever we dsicussed in above oauth flow   everything was worked automatically. lets understand how internally springboot calls those apis. 
+
+
+   * when user makes request of '/login' we know it is showing all the login options to login  in which our app was registered . it is because by default when we hit /login DefaultLoginPageGeneratingFilter was invoked and it generates a html page and shows all the available  login methods by iterating over the configs we provided in app.prop file.
+   
+   * once user choose any one of them to login then internally springboot calls '/oauth2/authorization/{registration_id}' api . here registration id is client id of which method the user has clicked. and this api will be handled by OAuth2AuthorizationRequestRedirectFilter.
+  
+   * from this filter based on the registartion id sprinboot auto redirects to their respective authorization server to login (either gitlab login page or auth0 login page) once user was authenticated there and gave consent to share their data to the third party app. so now from authorization server it will redirects to redirect uri we mentioned during registraation process and also sends authorization code.
+   
+   * now this redirected api will be handled by OAuth2LoginAuthenticationFilter there it will  prepare a authentication object and call authenticate method of authentication manager. as our authorization code is open id  and this authentication object will be handled by OidcAuthorizationCodeAuthenticationProvider .
+   
+   * in that provder  it will invoke '/token' to respective auth server and gets accesstoken and idtoken (which is helpful for authenticating the user) and returns back these tokens to authentication filter by placing those token in authentication object.
+   
+   * in filter (OAuth2LoginAuthenticationFilter) it will store these tokens and create a session and set this session to cookies and sennds response as login was done successfully. so from then browser will automatically sends this cookie while u are making any request to the application and gets back the response by validating cookie.
+   
+   
+   * As here we can see whenever user is making any request springboot is by default validating only session . it's  not even checking id token . so in this way oauth implementation has become state full (where user login status is maintained).
+   
+
+
+
+
+Making oauth2 as stateless :: 
+
+
+  * we can make this state less by using id token for vlidating a user instead of using session id .
+  *  as we know from OAuth2LoginAuthenticationFilter we will get session id in cookies we will modify that flow to send id token also in response body and we will use that id token for further validiation.
+  
+  * we can't edit the filter but in that filter after all the logic it is calling method onAuthenticationSuccess() which by default do some clean up things . if we implement the OAuth2LoginAuthenticationFilter parent class we can overide this method so in that method we can add our custom logic. 
+  
+ * so create a class customOauthSuccessHandler which implements authenticationSuccesHandler and override method and after that mention this handler in custom security filter chain.
+       eg  ::
+            
+             .oauth2Login(oauth -> oauth
+                        .successHandler(customOauth2SuccessHandler))
+                        
+   From Now if we hit /login after login we are receiving id token also in response. but now we need to add a new filter so that next time user hits any api after login it should  validate this id token instead of validating session id .
+   
+   
+   create a custom filter OAuthValidationFilter  . here it will fetch idtoken from headers and valdiates the token .
+   
+    For validating we will fetch who is the issuer of this token (either gitla or auth0) from the token itself. 
+    
+    After knoowing issuer we will fetch public key to decode the token . as we mention that url also (to fetch public key) in app.prop for each auth server.
+   
+    after decoding it we will fetch the username from token if it is not empty we can tell the id token is valid .
+    
+    add this filter in security config and also set session as stateless. so session itself will not be created.
+    
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, CustomOauth2SuccessHandler customOauth2SuccessHandler) throws Exception {
+        http.authorizeHttpRequests(auth -> auth
+                        .anyRequest().authenticated())
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .oauth2Login(oauth -> oauth
+                        .successHandler(customOauth2SuccessHandler))
+                .addFilterBefore(new OAuthValidationFilter(oAuthTokenValidatorUtil), UsernamePasswordAuthenticationFilter.class)
+                .oauth2Login(Customizer.withDefaults());
+
+        return http.build();
+    }
+    
+    
+    
+ So we are now no where considering the session id and it is now state less .in every request send the token we recieved at login time as authorization header (bearer) .                         
+          

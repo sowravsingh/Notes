@@ -27,7 +27,7 @@ SpringBoot Over Spring MVC ::
 *Dependency management is first advantage of springboot over spring MVC No need to mention version in pom.xml for any depenedncy . mention only springboot version it will automatically download the remaining versions suitable to springboot  version.
 
 *Auto Configuration  Best exmaple : @SpringBootApplication  
-                                    no need of separatley mentioning @componentScan( scanBeanPckages ="com.package")  it automatically scans the package where this main method exists . even though we can still give other packages also but directly to @springbootapplication. no need again @componentScan a.
+                                    no need of separatley mentioning @componentScan( scanBeanPckages ="com.package")  it automatically scans the package where this main method exists . even though we can still give other packages also but directly to @springbootapplication. no need again @componentScan annotations.
 
 * Embeded Server Springboot have its own default server (Tomcat) . so that it will run our application in 8080 port . (it will run the jar file that was compiled by maven and kept in /target folder).                                   
 

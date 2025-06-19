@@ -68,6 +68,36 @@ by using thymeleaf we can build a dynamic html page and can return as a response
    if u return any thing (String , or object ..etc) without giving @ResponseBody to that controller method springby defaullt consider it as a view and tries to searhc for that servlet file. as that file  doesnot exists it will return 404 resource not found error.
    
 
+
+(5) how to do validations on incoming http rquest body ? 
+   
+       use @Valid annotation for requestbody and convert that body to any DTO
+       
+       now in that DTO we can place different validations like @NOTNULL, @NOTBLANK, @NOTEMPTY, @EMAIL, @SIZE(MIN= , MAX=), @MIN(LEN =) , @MAX(LEN=)
+       
+ 
+(6) how to send different response body types for different methods in controller like for one method we need to send xml and for other json :: 
+ 
+      by giving produce value in annotation 
+      
+      eg :: @GetMapping(value = "/xml", produces = MediaType.APPLICATION_XML_VALUE)      
+            @GetMapping(value = "/json", produces = MediaType.APPLICATION_JSON_VALUE)	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ----------------
 
 (q) what is use of applications.properties file  
@@ -106,7 +136,7 @@ ans : here we will specific all the configurations like database connectivity or
           
            option.of() it will directly wrap our value such that if our vaue is null while fetching we may get nullpointer excption again,
            
-           option.ofNullable() . it will check the vlue before wrapping if it is null then it will wrap as an empty.
+           option.ofNullable() . it will check the value before wrapping if it is null then it will wrap as an empty.
 
 
            while fetching .ispresent() will check whether that value is empty or not (becoz there is no chance of null) 

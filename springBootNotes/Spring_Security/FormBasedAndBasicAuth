@@ -146,6 +146,73 @@ Disadvantages of Form Login Authentication method::
 
 
 
+
+
+conclusion :: 
+
+        Requirements to enable form based spring security 
+        
+        (1) create custom object for password encryption ::
+        
+             @Bean
+             public PasswordEncoder getPasswordEncoder(){
+                   return new BCryptPasswordEncoder();
+              }
+              
+         (2) create custom bean for user details service 
+         
+               @Bean
+               public UserDetailsService userDetailsService() {
+                      return new UserAuthEntityService();
+               }
+               
+          As we implemented UserDetailsService by UserAuthEntityService.
+          
+          
+          (3) create custom object for authentication provider for form based with password encoder and user details service object 
+          
+          
+               @Bean
+               public AuthenticationProvider authenticationProvider() {
+                    DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+                    authProvider.setUserDetailsService(userDetailsService());
+                    authProvider.setPasswordEncoder(getPasswordEncoder()); // use same encoder used while saving password
+                   return authProvider;
+               }        
+
+
+         (4) create custom security filter object 
+         
+          
+               @Bean
+               public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+                        http.authorizeHttpRequests(auth -> auth
+                                       .requestMatchers(new AntPathRequestMatcher("/api/registerUser")).permitAll()
+                                       .requestMatchers(new AntPathRequestMatcher("/api/getUserById")).hasRole("USER")
+                                       .anyRequest().authenticated()
+                                )
+                                .sessionManagement(session -> session.maximumSessions(1)
+                                .maxSessionsPreventsLogin(true))
+                                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                                .csrf(csrf -> csrf.disable())
+                                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
+                                .formLogin(Customizer.withDefaults());
+
+                    return http.build();
+               }
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
  (2) Basic Authentication Method. :: 
 
      It is a stateless Authentication method (i.e user authentication state is not maintained over server like maintaining session details in form login authentication method).

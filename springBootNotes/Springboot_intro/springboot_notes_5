@@ -67,7 +67,7 @@ it has 2 steps ::
 
                  @Target :: this annotation tells us where we have to use this annotation. either (at method level or at class level...)
 
-                 @Retention :: upto at which etent this annotation should be present i.e if we gve value as source it will be present at jdk level only if we compile this annotatio will be gone , if we give class level it will present upto compile time and if we give run time this annoattion will work at time of application running level.
+                 @Retention :: upto at which extent this annotation should be present i.e if we gve value as source it will be present at jdk level only if we compile this annotatio will be gone , if we give class level it will present upto compile time and if we give run time this annoattion will work at time of application running level.
 
 
                  we have fields also for which we can give values at time of using this anotation.

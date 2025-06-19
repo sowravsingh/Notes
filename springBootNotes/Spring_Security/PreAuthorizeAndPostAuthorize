@@ -1,0 +1,156 @@
+                       
+                                             @PreAuthorize , @PostAuthorize
+                                             
+                                             
+Till Now Authorization was done at filter level i.e in our ccustom security filter chain object we mention all our api's for which api which role has access. But this is not a ideal scenario because if we have 100 apis we need to mention all those api's there which might become difficult and cause scalable issues.
+
+Best option is As we know after authentication we will have an authentication object which will be present and available through out the request life cycle . so we will handle this authorization process at contoller level only .
+
+As we know this authentication object contains that user's roles, grant access and other details also so we use them for authorization process here . 
+
+Basically we follow annotation based Role based Authorization process.
+
+There are 2 Annotations 
+(1) @PreAuthorize :: does the authorization proces before the execution of API.
+(2) @PostAuthorize :: does the authorization proces after the execution of API.
+
+
+User Creation :: 
+ 
+    It is same as already discussed for creating dynamic users. but here we will add extra details like list of permissions . i.e i want to authirize a user  at a low level like user has a access to read-data, delete-data or other permissions it is siilalry role based only but minute level like at some point we don't want to give all access to all users belongs to a particular role there also i need to verify he has valid permissions .
+    
+    create a separate entity permissions and make one to many mapping with user auth entity .
+    
+    eg :: 
+    
+        @OneToMany(cascade= CascadeType.ALL,fetch = FetchType.EAGER)
+        private List<UserPermissionEntity> userPermissionEntityList;
+        
+        
+    Now add all those permissions into authorities list initially we added only role in that authorities list . now we will add all these permissions in that list.
+    
+    eg :: 
+    
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        Set<GrantedAuthority> authorities = new HashSet<>();
+        authorities.add(new SimpleGrantedAuthority(role));
+
+        userPermissionEntityList.forEach(permission ->authorities.add(new SimpleGrantedAuthority(permission.getPermission())));
+
+        return authorities;
+    }
+    
+    
+  User Creation was done 
+  
+  To Enable this method based authorization we need to annotate our security config class with @EnableMethodSecurity(prePostEnabled = true) . so that it will be enabled. 
+  
+  (1) @PreAuthorize 
+  
+       For any end point if u want to want authorization check you can annotate that controller level method with @PreAuthorize and can give for which role u want grant access that api .
+       
+       
+       eg ::
+       @GetMapping("/api/getUserAccess")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> getUserAccess(){
+
+        return ResponseEntity.status(HttpStatus.OK).body("this user has access");
+    }
+    
+    
+    here it will grant access to all users who were having role as ROLE_ADMIN . (here springboot will add automatically 'ROLE_' before the role and checks .
+    
+   
+   
+    eg :: @PreAuthorize("hasRole('ADMIN') and hasAuthority('read-data')")
+           
+    here it will grant access to all users who were having role as ROLE_ADMIN and have permission of 'read-data'.
+    
+    
+    eg :: @PreAuthorize("hasRole('ADMIN') or hasAuthority('read-data')")
+           
+    here it will grant access to all users who were having role as ROLE_ADMIN or any user of any role but  have permission of 'read-data'.
+    
+    
+    while successful authentication we know that all the user data will be loaded and stored in authenitcation object and manitained through out request life cycle.
+    
+   Now  both hasRole and hasAuthority will check in authority list of that autnentication object only .  as while creating an user we adding both roles and permissions in authorirty list . only difference is while checking in list hasRole appends 'ROLE_' before string and checks in list . where as hasAuthority will check directly with that string in list.
+   
+   
+   
+
+
+
+Internal Working of @PreAuthorize Annotation ::
+
+  * there is a interceptor AuthorizationManagerBeforeMethodInterceptor  which is going to intercept @Preauthorize annotation before our controller method.
+  
+  * this interceptor reads that string expression  that we provided inside @PreAuthorize annotation . actually that expression uses  SpEL (Spring EXpression Language).
+  
+  * Now that intercpetor parse that string using SpelExpressionParser  and converts into AST(Abstract Syntax Tree).
+  * Resolves the above Expression and all the references we give will be ressolved and then validate the result to invoke the actual controller method or not .
+  
+  
+  
+ By usng this @PreAuthrize we can not only check user role or permissions . as it will have access to entire authentication object we can check other fields also like id , name . 
+   
+   eg ::
+   
+      @PreAuthorize("#id == authentication.principal.id") 
+      @GetMapping("/users/{id}") 
+      public User fetchUserDetails(@PathVariable Long id) { 
+
+            return userServiceObject.fetchUserDetails(id); 
+      }     
+  
+  
+   this will be mainly helpful in case like user needs to fetch his user details only not others . so here it will compare the id (that we got from api with id in authentication object).
+   
+   
+   
+   
+  (2) @PostAuthorize ::
+  
+       Same as  @PreAuthorize but this annotation will check authorization check after controller method completed it's execution. this annotation was intercepted by  AuthorizationManagerAfterMethodInterceptor.
+       
+       
+       for eg ::
+       
+           combination of pre and postauthorize 
+       
+          @GetMapping("/api/getUserAccess")
+          @PreAuthorize("hasRole('ADMIN') and hasAuthority('read-data')")
+          @PostAuthorize("returnObject.Id == authentication.principal.id")
+          public ResponseEntity<UserDetailsDTO> getUserAccess(){
+                 UserDetailsDTO userDetailsDTO = new UserDetailsDTO();
+                 userDetailsDTO.setId(2L);
+                 userDetailsDTO.setName("sowrav");
+                 return ResponseEntity.status(HttpStatus.OK).body(userDetailsDTO);
+            }    
+   
+   
+   
+   
+    flow :: 
+    
+    first @PreAuthorize will get invoked and checks whether user has role of ROLE_ADMIN and has permission of read-data 
+    
+    then it does business logic and usedetails dto will be returned from method.
+    
+    not @PostAuthorize will get invoked and checks whether the id in dto is eqaul to id of the user who hit that request . in this way we can control no user can access others data.
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+ 
